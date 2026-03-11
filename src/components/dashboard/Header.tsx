@@ -103,9 +103,16 @@ export function Header() {
             className="text-white p-4 shadow-lg sticky top-0 z-40 flex items-center justify-between"
             style={{ background: "linear-gradient(to right, #38B3AB, #2a9890)" }}
         >
-            <div>
-                <h1 className="text-xl font-bold">Dashboard Joana</h1>
-                <p className="text-sm opacity-90">Agente IA - Saoodi</p>
+            <div className="flex items-center gap-3">
+                <img 
+                    src="/logo2.png" 
+                    alt="Logo Saoodi" 
+                    className="h-10 w-auto object-contain"
+                />
+                <div>
+                    <h1 className="text-xl font-bold leading-tight">Dashboard Joana</h1>
+                    <p className="text-sm opacity-90 leading-tight">Agente IA - Saoodi</p>
+                </div>
             </div>
 
             <div className="flex items-center gap-3 text-sm">
