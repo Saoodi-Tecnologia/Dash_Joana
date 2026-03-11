@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Lock } from 'lucide-react';
 import { DashboardProvider } from '@/context/DashboardContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useChat } from '@/hooks/useChat';
@@ -73,10 +74,73 @@ function DashboardContent() {
   );
 }
 
+const MASTER_PASSWORD = 'saoodi2026';
+
+function AuthWrapper({ children }: { children: React.ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const isAuth = localStorage.getItem('joana_dashboard_auth') === 'true';
+    if (isAuth) setIsAuthenticated(true);
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === MASTER_PASSWORD) {
+      localStorage.setItem('joana_dashboard_auth', 'true');
+      setIsAuthenticated(true);
+      setError(false);
+    } else {
+      setError(true);
+    }
+  };
+
+  if (isAuthenticated) return <>{children}</>;
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4 font-sans">
+      <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-gray-100">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center text-[#38B3AB] mb-4">
+            <Lock size={28} />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard Joana</h1>
+          <p className="text-sm text-gray-500 mt-1 text-center font-medium">Acesso restrito Saoodi</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Código de Acesso</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#38B3AB]/20 focus:border-[#38B3AB] transition-colors"
+              placeholder="Digite a senha"
+              autoFocus
+            />
+            {error && <p className="text-red-500 text-[11px] font-medium mt-2">Código incorreto. Tente novamente.</p>}
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-[#38B3AB] hover:bg-[#2d9d96] text-white font-semibold py-3 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center"
+          >
+            Acessar Sistema
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Index() {
   return (
-    <DashboardProvider>
-      <DashboardContent />
-    </DashboardProvider>
+    <AuthWrapper>
+      <DashboardProvider>
+        <DashboardContent />
+      </DashboardProvider>
+    </AuthWrapper>
   );
 }
