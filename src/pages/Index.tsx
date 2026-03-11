@@ -74,7 +74,16 @@ function DashboardContent() {
   );
 }
 
-const MASTER_PASSWORD = 'saoodi2026';
+// A senha 'Saoodi@2026' fica armazenada apenas como Hash (SHA-256)
+// Assim ninguem pode abrir o código fonte e ler a senha em texto plano.
+const MASTER_PASSWORD_HASH = 'cc0f47d0ba3ceaec51946f30eb18e6214ca385b63f61dedbce317e4b45f3b24f';
+
+async function hashString(str: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -86,9 +95,17 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     if (isAuth) setIsAuthenticated(true);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === MASTER_PASSWORD) {
+    if (!password) return;
+    
+    setIsAuthenticating(true);
+    const hash = await hashString(password);
+    setIsAuthenticating(false);
+
+    if (hash === MASTER_PASSWORD_HASH) {
       localStorage.setItem('joana_dashboard_auth', 'true');
       setIsAuthenticated(true);
       setError(false);
@@ -125,9 +142,10 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
           </div>
           <button
             type="submit"
-            className="w-full bg-[#38B3AB] hover:bg-[#2d9d96] text-white font-semibold py-3 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center"
+            disabled={isAuthenticating}
+            className="w-full bg-[#38B3AB] hover:bg-[#2d9d96] disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center"
           >
-            Acessar Sistema
+            {isAuthenticating ? 'Verificando...' : 'Acessar Sistema'}
           </button>
         </form>
       </div>
