@@ -451,22 +451,22 @@ class AnalyticsEngine {
             const fmtDate = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
             const periodoStr = `${fmtDate(startDate)} a ${fmtDate(endDate)}`;
 
-            const prompt = `Você é um analista de qualidade avaliando o atendimento da IA "Joana" no WhatsApp de um plano de saúde.
+            const prompt = `Você é um Diretor de Estratégia e Vendas analisando a OPERAÇÃO COMERCIAL de um plano de saúde via WhatsApp.
 
-ADVERTÊNCIA CRÍTICA: Baseie seus insights ESTRITAMENTE e EXCLUSIVAMENTE nas conversas transcritas abaixo. Leia os diálogos com atenção. Se a Joana explicou os valores, carência ou coparticipação corretamente, NÃO invente que ela errou. Os clientes frequentemente abandonam porque acharam caro, ou foram pensar. Aponte apenas fatos reais que ocorreram nas transcrições. Nunca afirme que a Joana não explicou algo se o texto abaixo mostra ela explicando.
+ADVERTÊNCIA CRÍTICA: Sua análise NÃO é sobre o robô que está atendendo, mas sim sobre o MERCADO e o COMPORTAMENTO DO CLIENTE. Baseie seus insights ESTRITAMENTE nas provas das conversas abaixo. Foque em: objeções de preço, necessidades não atendidas, e momento de abandono do comprador.
 
-Período: ${periodoStr} | Dúvidas mais frequentes na semana: ${topFaqs}
+Período: ${periodoStr} | Dúvidas mais frequentes na semana na operação: ${topFaqs}
 
-EXEMPLOS DE CONVERSAS REAIS (Analise como prova documental):
+EXEMPLOS DE CONVERSAS REAIS DOS CLIENTES (Analise como prova documental de vendas):
 ${amostrasTexto}
 
-Gere exatamente este JSON com 3 chaves:
+Gere exatamente este JSON com 3 chaves focadas na OPERAÇÃO COMERCIAL:
 
-"principalInsight": Um insight objetivo baseado APENAS na transcrição. O que aconteceu antes do cliente parar de responder? Ex: "O cliente hesitou ou parou de responder logo após receber a cotação correta de R$ X". Não invente erros da vendedora se ela respondeu certo. Não use palavras como "Sessão" ou "Diálogo". Máximo 45 palavras.
+"principalInsight": Qual foi a principal barreira de compra vista nas negociações acima? Ex: "Os clientes costumam abandonar a negociação no momento em que os valores de coparticipação são apresentados em detalhes." Não mencione o atendimento da IA, mencione apenas o comportamento do cliente perante o plano. Máximo 45 palavras.
 
-"padroesIdentificados": O que os clientes perguntaram nestas transcrições? Como eles reagem aos preços ou regras do plano? Máximo 45 palavras.
+"padroesIdentificados": O que os clientes desta semana mais buscam ou questionam antes de sumir? O problema é preço, carência, familiar? Dê foco no padrão de desejo e objeção. Máximo 45 palavras.
 
-"recomendacoesEstrategicas": Como a Joana pode conduzir o atendimento de forma mais engajadora? Ex: "Após enviar o valor correto, a Joana poderia perguntar: 'Esse valor está dentro do esperado?' em vez de apenas confirmar". Máximo 45 palavras.
+"recomendacoesEstrategicas": Como a operação comercial pode contornar essas objeções relatadas de forma estrutural? O que pode ser oferecido ou falado de forma diferente para reter esse perfil de cliente? Máximo 45 palavras.
 
 Retorne APENAS o JSON válido.`;
 
@@ -1249,28 +1249,27 @@ Retorne APENAS o JSON válido.`;
 
                 const funnelTotais = `Cotação=${counts.cotacao}, Interesse=${counts.interesse}, Fechamento=${counts.fechamento}`;
 
-                const prompt = `Você é um analista de dados avaliando as estatísticas globais da IA de atendimento "Joana" no WhatsApp de um plano de saúde.
+                const prompt = `Você é um Head de Inteligência Comercial e Vendas avaliando o desempenho da OPERAÇÃO DE VENDAS de um plano de saúde no cenário digital.
 
-ATENÇÃO: Você só tem os números abaixo, SEM a transcrição dos textos. Portanto, JAMAIS invente frases que a Joana teria dito, nem afirme que a Joana errou sem ter provas contextuais. Apenas destaque agrupamentos estatísticos interessantes a partir dos dados.
+ATENÇÃO: Você está avaliando o FUNIL, o COMPORTAMENTO DOS CLIENTES e a EFICIÊNCIA DA OPERAÇÃO, não a ferramenta de software.
 
-Dados do período analisado:
-- Conversas totais: ${result.kpis.totalConversas} | Fechamentos: ${counts.fechamento} | Taxa: ${result.kpis.taxaConversao}%
-- Abandono total: ${abandonos} conversas (${result.performance.kpis.taxaAbandono}%)
-- Funil: ${funnelTotais}
-- Abandono por etapa: Cotação=${abandonoPorEtapa.cotacao}, Interesse=${abandonoPorEtapa.interesse}
-- Dos que abandonaram na etapa de Interesse: ${abandonoInteresseComCopart} pessoas haviam tirado dúvidas sobre coparticipação; ${abandonoInteresseComInternacao} sobre internação
-- Sessões que acionaram atendente humano: ${sessoesComIntervencaoHumana}
-- Sessões com muita fricção (>20 mensagens): ${sessoesLongas}
-- Clientes que voltaram dias depois: ${result.engajamentoData.kpis.clientesRetorno}
-- Dúvidas que mais apareceram nos atendimentos: ${topFaqs}
+Dados de Vendas da Operação neste período:
+- Total de leads/contatos: ${result.kpis.totalConversas} | Vendas Fechadas: ${counts.fechamento} | Conversão: ${result.kpis.taxaConversao}%
+- Leads perdidos (Abandono): ${abandonos} contatos (${result.performance.kpis.taxaAbandono}%)
+- Gargalos do Funil: Cotação=${abandonoPorEtapa.cotacao} perdas, Interesse=${abandonoPorEtapa.interesse} perdas
+- Objeções específicas em "Interesse": ${abandonoInteresseComCopart} debateram sobre coparticipação; ${abandonoInteresseComInternacao} sobre internação ANTES de desistir.
+- Contatos que pediram escalonamento (falar com humano): ${sessoesComIntervencaoHumana}
+- Negociações exaustivas (>20 mensagens interagidas): ${sessoesLongas}
+- Clientes que voltaram dias depois (Lead Recorrente): ${result.engajamentoData.kpis.clientesRetorno}
+- Assuntos comerciais mais quentes: ${topFaqs}
 
-Gere exatamente este JSON com 3 chaves. 
+Gere exatamente este JSON com 3 chaves: 
 
-"principalInsight": Aponte um fato estatístico que chame atenção. Ex: "Houve ${abandonoInteresseComCopart} abandonos de clientes logo após ou durante as perguntas sobre coparticipação, sugerindo forte peso tarifário nessa etapa." Não invente erros da IA. Máximo 40 palavras.
+"principalInsight": Aponte a pior rachadura no funil comercial da operação baseado nestes números. Onde estamos perdendo dinheiro? Ex: "Alta perda cambial de leads na etapa de Interesse diretamente correlacionada a dúvidas fortes sobre coparticipação e internação (X% das perdas)." Máximo 45 palavras.
 
-"padroesIdentificados": Qual é a dúvida ou comportamento mais persistente nestes dados que atrapalhou a conversão? Máximo 45 palavras.
+"padroesIdentificados": Qual é a característica comercial predominante dessas negociações? Eles são leads indecisos (voltam mais vezes), leads cansativos (negociações longas) ou desistem cedo na cotação? Máximo 45 palavras.
 
-"recomendacoesEstrategicas": Sem inventar falhas passadas, dê uma sugestão preventiva. Ex: "Sugerir um material em PDF na etapa de coparticipação já que este tema concentra muitos abandonos". Máximo 45 palavras.
+"recomendacoesEstrategicas": Sugira UMA ação comercial focada em conversão para resolver a maior rachadura apontada acima (oferta, material de apoio, quebra de objeção prévia). Máximo 45 palavras.
 
 Retorne APENAS o JSON válido, sem markdown.`;
 
