@@ -451,23 +451,22 @@ class AnalyticsEngine {
             const fmtDate = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
             const periodoStr = `${fmtDate(startDate)} a ${fmtDate(endDate)}`;
 
-            const prompt = `Você é um consultor sênior de vendas analisando o desempenho da IA de atendimento "Joana" no WhatsApp de um plano de saúde.
+            const prompt = `Você é um analista de qualidade avaliando o atendimento da IA "Joana" no WhatsApp de um plano de saúde.
 
-ADVERTÊNCIA CRÍTICA: Baseie seus insights ESTRITAMENTE nas conversas transcritas abaixo e nos dados. O usuário já vê os gráficos, você precisa extrair a dor REAL do cliente observando os diálogos. Evite banalidades como "o cliente quer rapidez". Diga EXATAMENTE o que a Joana disse que espantou o cliente ou o que o cliente perguntou que não foi bem resolvido.
+ADVERTÊNCIA CRÍTICA: Baseie seus insights ESTRITAMENTE e EXCLUSIVAMENTE nas conversas transcritas abaixo. Leia os diálogos com atenção. Se a Joana explicou os valores, carência ou coparticipação corretamente, NÃO invente que ela errou. Os clientes frequentemente abandonam porque acharam caro, ou foram pensar. Aponte apenas fatos reais que ocorreram nas transcrições. Nunca afirme que a Joana não explicou algo se o texto abaixo mostra ela explicando.
 
-Período: ${periodoStr} | Abandono total: ${weekMetrics.performance.kpis.abandonoConversas} (${weekMetrics.performance.kpis.taxaAbandono}%)
-Dúvidas frequentes: ${topFaqs}
+Período: ${periodoStr} | Dúvidas mais frequentes na semana: ${topFaqs}
 
-EXEMPLOS DE CONVERSAS REAIS DESTA SEMANA (Analise-as com lupa):
+EXEMPLOS DE CONVERSAS REAIS (Analise como prova documental):
 ${amostrasTexto}
 
 Gere exatamente este JSON com 3 chaves:
 
-"principalInsight": Um insight específico baseado nas conversas transcritas. Por que os clientes pararam de interagir? Cite a fala ou situação exata. É TERMINANTEMENTE PROIBIDO usar as palavras "Sessão", "Exemplo", "Diálogo", "Caso" ou "Conversa X". Aja como um humano apontando o erro da vendedora. Máximo 40 palavras.
+"principalInsight": Um insight objetivo baseado APENAS na transcrição. O que aconteceu antes do cliente parar de responder? Ex: "O cliente hesitou ou parou de responder logo após receber a cotação correta de R$ X". Não invente erros da vendedora se ela respondeu certo. Não use palavras como "Sessão" ou "Diálogo". Máximo 45 palavras.
 
-"padroesIdentificados": O que os clientes perguntam ou pedem estruturalmente nas conversas acima que gera atrito? Cite o exemplo exato da dúvida do cliente. Jamais referencie o texto original explicitamente. Máximo 45 palavras.
+"padroesIdentificados": O que os clientes perguntaram nestas transcrições? Como eles reagem aos preços ou regras do plano? Máximo 45 palavras.
 
-"recomendacoesEstrategicas": Mudança específica no script da Joana para sanar o erro visto na transcrição. Formato: "Quando o cliente disser [X], a Joana deve [Y]". Máximo 45 palavras.
+"recomendacoesEstrategicas": Como a Joana pode conduzir o atendimento de forma mais engajadora? Ex: "Após enviar o valor correto, a Joana poderia perguntar: 'Esse valor está dentro do esperado?' em vez de apenas confirmar". Máximo 45 palavras.
 
 Retorne APENAS o JSON válido.`;
 
@@ -1250,33 +1249,30 @@ Retorne APENAS o JSON válido.`;
 
                 const funnelTotais = `Cotação=${counts.cotacao}, Interesse=${counts.interesse}, Fechamento=${counts.fechamento}`;
 
-                const prompt = `Você é um consultor sênior de vendas analisando o desempenho da IA de atendimento "Joana" no WhatsApp de um plano de saúde.
+                const prompt = `Você é um analista de dados avaliando as estatísticas globais da IA de atendimento "Joana" no WhatsApp de um plano de saúde.
 
-ADVERTÊNCIA CRÍTICA: Os cards abaixo NÃO são para resumir os dados. O usuário já vê esses números em gráficos. Seu trabalho é encontrar o que NÃO está visível nos gráficos.
+ATENÇÃO: Você só tem os números abaixo, SEM a transcrição dos textos. Portanto, JAMAIS invente frases que a Joana teria dito, nem afirme que a Joana errou sem ter provas contextuais. Apenas destaque agrupamentos estatísticos interessantes a partir dos dados.
 
 Dados do período analisado:
 - Conversas totais: ${result.kpis.totalConversas} | Fechamentos: ${counts.fechamento} | Taxa: ${result.kpis.taxaConversao}%
 - Abandono total: ${abandonos} conversas (${result.performance.kpis.taxaAbandono}%)
 - Funil: ${funnelTotais}
 - Abandono por etapa: Cotação=${abandonoPorEtapa.cotacao}, Interesse=${abandonoPorEtapa.interesse}
-- Dentro dos abandonos em "Interesse": ${abandonoInteresseComCopart} haviam perguntado sobre coparticipação, ${abandonoInteresseComInternacao} sobre internação
-- Sessões que precisaram de intervenção de atendente humano: ${sessoesComIntervencaoHumana}
-- Sessões longas (mais de 20 mensagens): ${sessoesLongas} de ${result.kpis.totalConversas} (indicam dificuldade de progressão)
-- Clientes que retornaram em dias diferentes: ${result.engajamentoData.kpis.clientesRetorno}
-- Ticket médio: R$ ${result.kpis.ticketMedio} | Tempo médio de conversa: ${result.kpis.tempoMedio}min
-- Dúvidas mais frequentes: ${topFaqs}
-- Horários com maior volume: ${horarioPicoStr}
-- Taxa de compreensão da Joana: ${result.qualidadeData.kpis.taxaCompreensao}% | Score: ${result.qualidadeData.score}/100
+- Dos que abandonaram na etapa de Interesse: ${abandonoInteresseComCopart} pessoas haviam tirado dúvidas sobre coparticipação; ${abandonoInteresseComInternacao} sobre internação
+- Sessões que acionaram atendente humano: ${sessoesComIntervencaoHumana}
+- Sessões com muita fricção (>20 mensagens): ${sessoesLongas}
+- Clientes que voltaram dias depois: ${result.engajamentoData.kpis.clientesRetorno}
+- Dúvidas que mais apareceram nos atendimentos: ${topFaqs}
 
-Gere exatamente este JSON com 3 chaves. Cada chave tem um propósito diferente e específico:
+Gere exatamente este JSON com 3 chaves. 
 
-"principalInsight": Identifique UMA causa ou correlação não óbvia que explica o resultado atual. Deve responder "por que" algo acontece. Use os dados dos abandonos por dúvida, sessões longas ou intervenções humanas. Cite números concretos. Máximo 40 palavras.
+"principalInsight": Aponte um fato estatístico que chame atenção. Ex: "Houve ${abandonoInteresseComCopart} abandonos de clientes logo após ou durante as perguntas sobre coparticipação, sugerindo forte peso tarifário nessa etapa." Não invente erros da IA. Máximo 40 palavras.
 
-"padroesIdentificados": Descreva um padrão de comportamento do CLIENTE que a Joana poderia explorar. Não cite o que é visível nos gráficos. Foque em: qual dúvida aparece antes do abandono, qual horário tem um perfil diferente, ou o que os clientes que retornam fazem de diferente. Máximo 45 palavras.
+"padroesIdentificados": Qual é a dúvida ou comportamento mais persistente nestes dados que atrapalhou a conversão? Máximo 45 palavras.
 
-"recomendacoesEstrategicas": Escreva UMA mudança específica no script da Joana. Formato: "Quando [situação concreta], a Joana deve [ação específica] antes de [etapa seguinte]". Use os dados reais de abandono por dúvida para embasar. Máximo 45 palavras.
+"recomendacoesEstrategicas": Sem inventar falhas passadas, dê uma sugestão preventiva. Ex: "Sugerir um material em PDF na etapa de coparticipação já que este tema concentra muitos abandonos". Máximo 45 palavras.
 
-Retorne APENAS o JSON válido, sem markdown, sem texto fora do JSON.`;
+Retorne APENAS o JSON válido, sem markdown.`;
 
                 const summariesText = await geminiService.generateSummary(prompt);
                 const jsonMatch = summariesText.match(/\{[\s\S]*\}/);
