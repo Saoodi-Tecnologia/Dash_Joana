@@ -1319,7 +1319,7 @@ serve(async (req) => {
     const engine = new AnalyticsEngine();
     
     if (generateInsights) {
-        const insights = await engine.generateWeeklyInsights();
+        const insights = await engine.generateWeeklyInsights(forceRefetch);
         return new Response(JSON.stringify(insights), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
