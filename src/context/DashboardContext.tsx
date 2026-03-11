@@ -62,28 +62,33 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const loadWeeklyInsights = async () => {
+    const loadWeeklyInsights = async (force: boolean = false) => {
         setIsLoadingInsights(true);
         try {
-            const insights = await analyticsEngine.generateWeeklyInsights();
-            setWeeklyInsights(insights);
+            const insights = await analyticsEngine.generateWeeklyInsights(force);
+            
+            const hasContent = insights?.principalInsight || 
+                               insights?.padroesIdentificados || 
+                               insights?.recomendacoesEstrategicas;
 
-            // Le o periodo do cache local para exibir no componente
-            const cached = localStorage.getItem('joana_weekly_insights');
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                setWeeklyInsightsPeriodo(parsed.periodoStr ?? null);
+            if (hasContent) {
+                setWeeklyInsights(insights);
+                setWeeklyInsightsPeriodo(insights.periodoStr ?? null);
+            } else {
+                setWeeklyInsights({});
+                setWeeklyInsightsPeriodo(null);
             }
         } catch (e) {
             console.error('Erro ao carregar insights semanais:', e);
+            setWeeklyInsights({});
+            setWeeklyInsightsPeriodo(null);
         } finally {
             setIsLoadingInsights(false);
         }
     };
 
     const reloadInsights = async () => {
-        localStorage.removeItem('joana_weekly_insights');
-        await loadWeeklyInsights();
+        await loadWeeklyInsights(true); // Força um novo insight do backend
     };
 
     const setSelectedPeriod = (period: SelectedPeriod) => {

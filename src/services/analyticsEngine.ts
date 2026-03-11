@@ -6,11 +6,11 @@ import type { DashboardMetrics } from '@/types/dashboard';
 // ============================================================
 export class AnalyticsEngine {
     
-    async generateWeeklyInsights(): Promise<Record<string, string>> {
+    async generateWeeklyInsights(forceRefetch: boolean = false): Promise<Record<string, string>> {
         try {
             console.log('Solicitando insights semanais via Edge Function...');
             const { data, error } = await supabase.functions.invoke('get-dashboard-metrics', {
-                body: { generateInsights: true }
+                body: { generateInsights: true, forceRefetch }
             });
             
             if (error) {

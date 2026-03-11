@@ -356,24 +356,30 @@ class AnalyticsEngine {
         return d.getTime();
     }
 
-    async generateWeeklyInsights(): Promise<Record<string, string>> {
+    async generateWeeklyInsights(forceRefetch: boolean = false): Promise<Record<string, string>> {
         try {
-            // Verifica cache local — so reutiliza se tiver os 3 campos e foi gerado desta 2ª feira em diante
-            const cached = null;
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                const isFromThisWeek = parsed.timestamp >= this.getMostRecentMonday();
-                
-                const hasContent = parsed.insights?.principalInsight &&
-                    parsed.insights?.padroesIdentificados &&
-                    parsed.insights?.recomendacoesEstrategicas;
-                    
-                if (isFromThisWeek && hasContent) {
-                    console.log('Insights semanais: usando cache local (gerado em', new Date(parsed.timestamp).toLocaleString('pt-BR'), ')');
-                    return parsed.insights;
+            if (!forceRefetch) {
+                // Verifica cache no banco de dados
+                const { data: cacheData } = await supabase
+                    .schema('dashboard')
+                    .from('dash_metrics_cache')
+                    .select('updated_at, metrics_data')
+                    .eq('id', 2)
+                    .single();
+
+                if (cacheData && Object.keys(cacheData.metrics_data || {}).length > 0) {
+                    const parsed = cacheData.metrics_data;
+                    const isFromThisWeek = parsed.timestamp >= this.getMostRecentMonday();
+
+                    const hasContent = parsed.insights?.principalInsight &&
+                        parsed.insights?.padroesIdentificados &&
+                        parsed.insights?.recomendacoesEstrategicas;
+
+                    if (isFromThisWeek && hasContent) {
+                        console.log('Insights semanais: usando cache do banco');
+                        return { ...parsed.insights, periodoStr: parsed.periodoStr };
+                    }
                 }
-                // Cache expirado (virou a semana) ou incompleto — remove para forcar nova geracao
-                
             }
 
             console.log('Insights semanais: gerando novo insight via Gemini...');
@@ -472,11 +478,22 @@ Retorne APENAS o JSON válido.`;
 
             const insights = JSON.parse(jsonMatch[0]);
 
-            // Salva no localStorage com timestamp
-            
+            // Salva no banco de dados para que todos os acessos no dashboard em qualquer lugar
+            // peguem esse mesmo dado ate a proxima segunda
+            const nowStr = new Date().toISOString();
+            const cachePayload = {
+                timestamp: Date.now(),
+                insights: insights,
+                periodoStr: periodoStr
+            };
 
-            console.log('Insights semanais: gerados e cacheados para o periodo', periodoStr);
-            return insights;
+            await supabase
+                .schema('dashboard')
+                .from('dash_metrics_cache')
+                .upsert({ id: 2, updated_at: nowStr, metrics_data: cachePayload as any });
+
+            console.log('Insights semanais: gerados e cacheados no banco para o periodo', periodoStr);
+            return { ...insights, periodoStr };
         } catch (e) {
             console.error('Insights semanais: erro na geração:', e);
             return {};
