@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { RefreshCw, Calendar, ChevronDown } from 'lucide-react';
+import { RefreshCw, Calendar, ChevronDown, LogOut } from 'lucide-react';
 import { useDashboard } from '@/hooks/useDashboard';
+import { useNavigate } from 'react-router-dom';
 import type { SelectedPeriod } from '@/types/dashboard';
 
 // ============================================================
@@ -66,6 +67,12 @@ export function Header() {
     const [showCustom, setShowCustom] = useState(false);
     const [customStart, setCustomStart] = useState('');
     const [customEnd, setCustomEnd] = useState('');
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        localStorage.removeItem('joana_dashboard_auth');
+        navigate('/login', { replace: true });
+    };
 
     const formatLastUpdated = (isoString: string | null) => {
         if (!isoString) return 'Carregando...';
@@ -115,9 +122,10 @@ export function Header() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-3 text-sm">
-                {/* Seletor de período */}
-                <div className="relative">
+            <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-3 text-sm">
+                    {/* Seletor de período */}
+                    <div className="relative">
                     <button
                         onClick={() => setDropdownOpen(prev => !prev)}
                         className="flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors px-3 py-1.5 rounded-full font-medium"
@@ -177,21 +185,31 @@ export function Header() {
                     )}
                 </div>
 
+                    <button
+                        onClick={() => reload(true)}
+                        disabled={isProcessing}
+                        className={`flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors px-3 py-1.5 rounded-full font-medium ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title="Forçar Reavaliação Inteligente da IA"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Atualizar</span>
+                    </button>
+
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 bg-white/20 hover:bg-red-500/90 transition-colors px-3 py-1.5 rounded-full font-medium ml-1"
+                        title="Sair do Dashboard"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span className="hidden sm:inline">Sair</span>
+                    </button>
+                </div>
+
                 {lastUpdated && (
-                    <span className="opacity-90 hidden md:inline-block">
+                    <span className="text-[10px] opacity-80 hidden md:block mr-2">
                         Atualizado às: {formatLastUpdated(lastUpdated)}
                     </span>
                 )}
-
-                <button
-                    onClick={() => reload(true)}
-                    disabled={isProcessing}
-                    className={`flex items-center gap-2 bg-white/20 hover:bg-white/30 transition-colors px-3 py-1.5 rounded-full font-medium ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title="Forçar Reavaliação Inteligente da IA"
-                >
-                    <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
-                    <span className="hidden sm:inline">Atualizar</span>
-                </button>
             </div>
 
             {/* Fecha dropdown ao clicar fora */}
