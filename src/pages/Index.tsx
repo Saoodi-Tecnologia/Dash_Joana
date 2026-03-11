@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import { DashboardProvider } from '@/context/DashboardContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useChat } from '@/hooks/useChat';
@@ -96,6 +96,7 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, []);
 
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,14 +131,24 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Código de Acesso</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#38B3AB]/20 focus:border-[#38B3AB] transition-colors"
-              placeholder="Digite a senha"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#38B3AB]/20 focus:border-[#38B3AB] transition-colors"
+                placeholder="Digite a senha"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {error && <p className="text-red-500 text-[11px] font-medium mt-2">Código incorreto. Tente novamente.</p>}
           </div>
           <button
