@@ -55,19 +55,19 @@ Subdividimos visões analíticas no `Index.tsx`, despachando dados para as respe
 
 Toda a aquisição de telemetria cruza com banco de dados remoto da Cloud via **Supabase**. O principal orquestrador visual está no arquivo `client.ts` dentro de `src/integrations/supabase`.
 
-### A Engenharia de Análise Transacional (Analytics Engine & Edge Functions)
-Anteriormente utilizava mocks estáticos. Hoje a métrica é produzida baseada nos contatos *real-time*.
+### A Engenharia de Análise Transacional, Data Warehouse e Edge Functions
+A métrica do sistema é produzida baseada nos contatos *real-time* atuando em conjunto com um sistema robusto de Big Data e Data Warehousing.
 
 **O Arquivo Mestre:** `src/services/analyticsEngine.ts`
-Desempenha a função de Proxy Backend. O Engine captura as solicitações oriundas do Hook da interface do usuário (`forceRefetch`, `startDate`, `endDate`), mapeia as strings `ISO` e delega a responsabilidade massiva da computação dos dados para a Edge Function via RCP HTTPs POST.
+Desempenha a função de Proxy Backend. Captura solicitações da UI (`startDate`, `endDate`), mapeia o período e delega a computação para a Edge Function via HTTP POST.
 
-**A Edge Function (`get-dashboard-metrics`):**
-A função serverless (Deno/Edge) alocada no Supabase que:
-1. Captura o range de datas solicitado.
-2. Extrai de múltiplas tabelas todos os chats e transações brutas de intenção do usuário daquele mês.
-3. Faz a agregação complexa iterativa transformando logs brutos nos objetos `DashboardMetrics` formatados para compatibilidade com o Recharts da UI Front-end.
+**A Edge Function (`get-dashboard-metrics`) e a Tabela Consolidada (`dash_sessoes_consolidadas`):**
+Para garantir alta performance (preparado para mais de 10.000 clientes simultâneos sem *timeout*), a arquitetura utiliza a engenharia de **Dados Consolidados**:
+1. **Robô de Consolidação (`consolidateSessions`)**: A Edge Function possui uma rotina que processa as múltiplas mensagens de funil isoladas (`dash_mensagens_realtime`), extrai inteligência rigorosa de intenção (tópicos de abandono, vidas cotadas, conversões em propostas REAIS, frustrações de atendimento) e resume isso salvando 1 única linha por atendimento na tabela consolidada.
+2. **Leitura Híbrida Super-Rápida**: Ao carregar a Dashboard (ou o motor do Chat), o script lê a base condensada ultra-leve e mescla, sob demanda, apenas com as *news threads* que ocorreram estritamente no dia de "Hoje", garantindo painéis renderizados em milissegundos mesmo com gráficos complexos.
+3. **Fidelidade Realista**: O Gemini Analyst (que julga "Resumos de IA Semanais") não tira achismos dos dados brutos numéricos. A estrutura de engine abaixa transcrições reais literais em cima da base limpa e envia para a IA avaliar como um "Diretor Comercial" focado em atrito e fechamento.
 
-Benefício da Arquitetura: Libera peso massivo de arrays lógicos do frontend e deixa as agregações de banco SQL e de contagem lógicas serem otimizadas o máximo próximo ao banco da Nuvem.
+Benefício da Arquitetura: Elimina prop-drilling no React, previne lentidão crônica no motor SQL (leitura em lotes comprimidos) e economiza custos de processamento injetando objetos `DashboardMetrics` moldados direto nas bibliotecas nativas de *Recharts*.
 
 ---
 
