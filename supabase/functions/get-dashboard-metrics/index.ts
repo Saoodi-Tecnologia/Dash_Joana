@@ -101,6 +101,7 @@ interface ProdutosData {
     faixasEtarias: FaixaEtaria[];
     dependentes: DependenteDistribuicao[];
     comparativoLabels: { label1: string; label2: string };
+    idadesCotadasReal?: number[];
 }
 
 interface EngajamentoKpis {
@@ -481,20 +482,15 @@ class AnalyticsEngine {
             else if (/\b3\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "3";
             else if (/\b2\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "2";
 
-            // FAIXAS ETARIAS
-            const faixas: string[] = [];
+            // FAIXAS ETARIAS (Substituido por Idades Reais Cotadas)
+            const idadesExtras: number[] = [];
             let match;
-            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos/gi;
+            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos)/gi;
             const sourceText = aiTextRaw + ' ' + humanTextRaw;
             while ((match = ageRegex.exec(sourceText)) !== null) {
                 const age = parseInt(match[1]);
-                if (age >= 1 && age <= 100) {
-                    if (age <= 17) faixas.push('Ate 18');
-                    else if (age <= 29) faixas.push('18-29');
-                    else if (age <= 39) faixas.push('30-39');
-                    else if (age <= 49) faixas.push('40-49');
-                    else if (age <= 59) faixas.push('50-59');
-                    else faixas.push('60+');
+                if (age >= 0 && age <= 105) {
+                    idadesExtras.push(age);
                 }
             }
 
@@ -519,9 +515,9 @@ class AnalyticsEngine {
                 is_abandono: isAbandono,
                 plano_type,
                 vidas_cotadas: vidasDetectadas,
-                ticket_estimado,
+                ticket_estimado: ticket_estimado,
                 dependentes: dCount,
-                faixas_etarias: faixas,
+                idades_cotadas: idadesExtras,
             };
         });
 
@@ -1083,6 +1079,7 @@ Retorne APENAS o JSON válido.`;
         const planosByDay: Record<string, { empresarial: number, familiar: number }> = {};
 
         let faixas: Record<string, number> = {};
+        const idadesCotadasReal: number[] = [];
         let dependentes: Record<string, { mesPassado: number, mesAtual: number }> = {
             "0": { mesPassado: 0, mesAtual: 0 },
             "1": { mesPassado: 0, mesAtual: 0 },
@@ -1330,17 +1327,17 @@ Retorne APENAS o JSON válido.`;
             }
 
             // -------------------------------------------------------
-            // FAIXAS ETARIAS — 6 faixas simplificadas para melhor visualizacao
-            // Ate 18 | 18-29 | 30-39 | 40-49 | 50-59 | 60+
-            // Prioridade: aiMessages (a IA cita as idades ao fazer cotacao)
-            // -------------------------------------------------------
+            // FAIXAS ETARIAS / IDADES REAIS
+            // Extrai as idades nativas primeiramente (utilizando Regex para captar na reconstrucao)
             const ageSourceText = aiTextRaw + ' ' + humanTextRaw;
             const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos/gi;
             let match;
-            const sessionAges = new Set<string>();
+            const sessionAges = new Set<string>(); // Buckets front
+            
             while ((match = ageRegex.exec(ageSourceText)) !== null) {
                 const age = parseInt(match[1]);
-                if (age < 1 || age > 100) continue;
+                if (age < 0 || age > 105) continue;
+                idadesCotadasReal.push(age);
                 if (age <= 17)      sessionAges.add('Ate 18');
                 else if (age <= 29) sessionAges.add('18-29');
                 else if (age <= 39) sessionAges.add('30-39');
@@ -1542,7 +1539,8 @@ Retorne APENAS o JSON válido.`;
                     { dependentes: "4", mesPassado: dependentes["4"].mesPassado, mesAtual: dependentes["4"].mesAtual, label: "4 dependentes" },
                     { dependentes: "5+", mesPassado: dependentes["5+"].mesPassado, mesAtual: dependentes["5+"].mesAtual, label: "5 ou mais" }
                 ],
-                comparativoLabels: { label1: comparativoLabel1, label2: comparativoLabel2 }
+                comparativoLabels: { label1: comparativoLabel1, label2: comparativoLabel2 },
+                idadesCotadasReal: idadesCotadasReal
             },
             engajamentoData: {
                 kpis: {

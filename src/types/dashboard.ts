@@ -90,6 +90,7 @@ export interface ProdutosData {
     faixasEtarias: FaixaEtaria[];
     dependentes: DependenteDistribuicao[];
     comparativoLabels: { label1: string; label2: string };
+    idadesCotadasReal?: number[];
 }
 
 export interface EngajamentoKpis {
