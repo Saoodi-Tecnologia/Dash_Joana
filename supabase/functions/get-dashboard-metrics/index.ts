@@ -350,12 +350,13 @@ class AnalyticsEngine {
                     contact_phone: row.contact_phone || null,
                     human_text: [],
                     ai_text: [],
+                    ai_cotacao_text: [], // apenas mensagens is_ia=true
                     total_messages: 0,
                     human_messages_count: 0,
                     ai_messages_count: 0,
                     primeira_mensagem_at: new Date(row.received_at || row.chatwoot_created_at),
                     ultima_mensagem_at: new Date(row.received_at || row.chatwoot_created_at),
-                    horarios_mensagens: [], // para pico de horas
+                    horarios_mensagens: [],
                     intervencao_humana: false,
                     lastMsgIsHuman: false,
                 };
@@ -365,6 +366,7 @@ class AnalyticsEngine {
             const content = (row.content as string) || '';
             const ts = new Date(row.received_at || row.chatwoot_created_at);
             const isHuman = row.message_type === 'incoming';
+            const isIaReal = row.is_ia === true;
 
             s.total_messages++;
             if (isHuman) {
@@ -373,6 +375,10 @@ class AnalyticsEngine {
             } else {
                 s.ai_messages_count++;
                 s.ai_text.push(content);
+                // Apenas mensagens genuinas da IA (nao atendente humana)
+                if (isIaReal) {
+                    s.ai_cotacao_text.push(content);
+                }
             }
 
             if (ts < s.primeira_mensagem_at) s.primeira_mensagem_at = ts;
@@ -485,14 +491,19 @@ class AnalyticsEngine {
             else if (/\b3\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "3";
             else if (/\b2\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "2";
 
-            // FAIXAS ETARIAS (Substituido por Idades Reais Cotadas)
+            // IDADES REAIS COTADAS - fonte exclusiva: mensagens genuinas da IA com valor R$
+            // Filtra apenas mensagens de cotacao real (que contem R$) removendo textos de politica/regra
+            const aiCotacaoRaw = s.ai_cotacao_text
+                .filter((m: string) => /R\$/.test(m))
+                .join(' ');
             const idadesExtras: number[] = [];
             let match;
-            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos)/gi;
-            const sourceText = aiTextRaw + ' ' + humanTextRaw;
+            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos?|m[eê]s(?:es)?)/gi;
             const extractUniqueAges = new Set<number>();
-            while ((match = ageRegex.exec(sourceText)) !== null) {
-                const age = parseInt(match[1]);
+            while ((match = ageRegex.exec(aiCotacaoRaw)) !== null) {
+                const raw = parseInt(match[1]);
+                const isMes = /m[eê]s/i.test(match[0]);
+                const age = isMes ? 0 : raw;
                 if (age >= 0 && age <= 105) {
                     extractUniqueAges.add(age);
                 }
@@ -967,12 +978,14 @@ Retorne APENAS o JSON válido.`;
                     timestamps: [],
                     humanMessages: [],
                     aiMessages: [],
+                    aiOnlyMessages: [], // apenas mensagens is_ia=true
                     content: '',
                     contactPhone: row.contact_phone || null,
                 };
             }
             const content = (row.content as string) || '';
             const isHuman = row.message_type === 'incoming';
+            const isIaReal = row.is_ia === true;
             const ts = new Date((row.received_at || row.chatwoot_created_at) as string);
 
             sessions[sessionId].messages.push({ type: isHuman ? 'human' : 'ai', content });
@@ -980,7 +993,10 @@ Retorne APENAS o JSON válido.`;
             sessions[sessionId].content += ' ' + content;
 
             if (isHuman) sessions[sessionId].humanMessages.push(content);
-            else sessions[sessionId].aiMessages.push(content);
+            else {
+                sessions[sessionId].aiMessages.push(content);
+                if (isIaReal) sessions[sessionId].aiOnlyMessages.push(content);
+            }
         });
 
         const activeSessions = Object.values(sessions).filter(s => s.humanMessages.length > 0);
@@ -999,6 +1015,7 @@ Retorne APENAS o JSON válido.`;
             timestamps: Date[];
             humanMessages: string[];
             aiMessages: string[];
+            aiOnlyMessages: string[];
             content: string;
         }> = {};
 
@@ -1013,6 +1030,7 @@ Retorne APENAS o JSON válido.`;
                     timestamps: [],
                     humanMessages: [],
                     aiMessages: [],
+                    aiOnlyMessages: [],
                     content: '',
                 };
             }
@@ -1022,6 +1040,7 @@ Retorne APENAS o JSON válido.`;
             c.timestamps.push(...session.timestamps);
             c.humanMessages.push(...session.humanMessages);
             c.aiMessages.push(...session.aiMessages);
+            c.aiOnlyMessages.push(...session.aiOnlyMessages);
             c.content += ' ' + session.content;
         });
 
@@ -1332,16 +1351,20 @@ Retorne APENAS o JSON válido.`;
             }
 
             // -------------------------------------------------------
-            // FAIXAS ETARIAS / IDADES REAIS
-            // Extrai as idades nativas primeiramente (utilizando Regex para captar na reconstrucao)
-            const ageSourceText = aiTextRaw + ' ' + humanTextRaw;
-            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos/gi;
+            // IDADES REAIS - fonte exclusiva: mensagens genuinas da IA (is_ia=true) com R$
+            // Remove ruido de textos de politica, atendentes humanos e mensagens informativas
+            const aiCotacaoStr = session.aiOnlyMessages
+                .filter((m: string) => /R\$/.test(m))
+                .join(' ');
+            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos?|m[eê]s(?:es)?)/gi;
             let match;
             const sessionAges = new Set<string>(); // Buckets front
             const sessionUniqueAgesRebuilt = new Set<number>();
             
-            while ((match = ageRegex.exec(ageSourceText)) !== null) {
-                const age = parseInt(match[1]);
+            while ((match = ageRegex.exec(aiCotacaoStr)) !== null) {
+                const raw = parseInt(match[1]);
+                const isMes = /m[eê]s/i.test(match[0]);
+                const age = isMes ? 0 : raw;
                 if (age < 0 || age > 105) continue;
                 sessionUniqueAgesRebuilt.add(age);
             }
