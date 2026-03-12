@@ -116,7 +116,7 @@ export function Header() {
                     alt="Logo Saoodi" 
                     className="h-10 w-auto object-contain"
                 />
-                <div>
+                <div className="hidden sm:block">
                     <h1 className="text-xl font-bold leading-tight">Dashboard Joana</h1>
                     <p className="text-sm opacity-90 leading-tight">Agente IA - Saoodi</p>
                 </div>

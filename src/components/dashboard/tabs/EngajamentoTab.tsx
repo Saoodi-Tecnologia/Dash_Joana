@@ -26,10 +26,20 @@ export function EngajamentoTab() {
         ? engajamentoData.horarioPico.reduce((prev, curr) => prev.mensagens > curr.mensagens ? prev : curr)
         : { horario: '--', mensagens: 0 };
 
-    // Top horario do ranking (barra em destaque)
     const topVolumeHorario = engajamentoData.volumeHorario.length > 0
         ? engajamentoData.volumeHorario[0]
         : { horario: '--', mensagens: 0 };
+
+    // Melhoria para mobile: reduz quantidade de labels se houver muitos pontos
+    const muitosPontosPico = engajamentoData.horarioPico.length > 12;
+    const xAxisPicoProps = muitosPontosPico 
+        ? { interval: Math.floor(engajamentoData.horarioPico.length / 6) } 
+        : { interval: 0 };
+
+    const muitosPontosVolume = engajamentoData.volumeHorario.length > 12;
+    const xAxisVolumeProps = muitosPontosVolume
+        ? { interval: Math.floor(engajamentoData.volumeHorario.length / 6) }
+        : { interval: 0 };
 
     return (
         <div className="space-y-4">
@@ -88,7 +98,14 @@ export function EngajamentoTab() {
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                            <XAxis dataKey="horario" tickLine={false} axisLine={false} tickMargin={8} interval={0} style={{ fontSize: "12px" }} />
+                            <XAxis 
+                                dataKey="horario" 
+                                tickLine={false} 
+                                axisLine={false} 
+                                tickMargin={8} 
+                                style={{ fontSize: "11px" }}
+                                {...xAxisPicoProps}
+                            />
                             <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
                             <Area
                                 dataKey="mensagens"
@@ -127,7 +144,14 @@ export function EngajamentoTab() {
                             margin={{ left: 0, right: 0, top: 5, bottom: 5 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                            <XAxis dataKey="horario" tickLine={false} axisLine={false} tickMargin={10} interval={0} style={{ fontSize: "12px" }} />
+                            <XAxis 
+                                dataKey="horario" 
+                                tickLine={false} 
+                                axisLine={false} 
+                                tickMargin={10} 
+                                style={{ fontSize: "11px" }}
+                                {...xAxisVolumeProps}
+                            />
                             <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
                             <Bar
                                 dataKey="mensagens"

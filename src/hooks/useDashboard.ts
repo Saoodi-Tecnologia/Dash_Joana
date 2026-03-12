@@ -29,7 +29,7 @@ export function useDashboard() {
     };
 
     const engajamentoData = data?.engajamentoData ?? {
-        kpis: { mensagensConversa: 0, taxaRetorno: 0, clientesRetorno: 0, tempoResposta: 0, duracaoMedia: 0 },
+        kpis: { mensagensConversa: 0, taxaRetorno: 0, clientesRetorno: 0, sessoesLongasPct: 0, sessoesLongasCount: 0, duracaoMedia: 0 },
         horarioPico: [],
         volumeHorario: []
     };
