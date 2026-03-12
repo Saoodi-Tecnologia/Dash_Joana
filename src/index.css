@@ -123,3 +123,16 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Remove a borda (focus ring) preta no mobile ao clicar nos gráficos */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-responsive-container {
+  outline: none !important;
+}
+
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-responsive-container:focus {
+  outline: none !important;
+}
