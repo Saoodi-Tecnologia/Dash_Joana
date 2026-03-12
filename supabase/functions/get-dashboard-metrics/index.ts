@@ -356,6 +356,7 @@ class AnalyticsEngine {
                     ultima_mensagem_at: new Date(row.received_at || row.chatwoot_created_at),
                     horarios_mensagens: [], // para pico de horas
                     intervencao_humana: false,
+                    lastMsgIsHuman: false,
                 };
             }
             
@@ -374,7 +375,10 @@ class AnalyticsEngine {
             }
 
             if (ts < s.primeira_mensagem_at) s.primeira_mensagem_at = ts;
-            if (ts > s.ultima_mensagem_at) s.ultima_mensagem_at = ts;
+            if (ts >= s.ultima_mensagem_at) {
+                s.ultima_mensagem_at = ts;
+                s.lastMsgIsHuman = isHuman;
+            }
             
             s.horarios_mensagens.push(ts.getHours());
 
@@ -385,7 +389,115 @@ class AnalyticsEngine {
 
         // Prepara rows para o banco
         const upsertRows = Object.values(sessions).map(s => {
-            const human_text = s.human_text.join(' ');
+            const humanTextRaw = s.human_text.join(' ');
+            const aiTextRaw = s.ai_text.join(' ');
+            
+            // ============================================
+            // INFERÊNCIA ANALÍTICA DE SESSÃO
+            // ============================================
+            let stage = 'Cotação';
+            if (/(rede credenciada|carência|hospitais|clínicas|cobertura|mais informações|internação|cirurgia|emergência|co.?participação|coparticipação|comparticipação)/i.test(humanTextRaw)) {
+                stage = 'Interesse';
+            }
+            const intenClienteFechar = /(fechado|vou querer|quero contratar|vamos fechar|pode seguir|pode fazer|pagar agora)/i.test(humanTextRaw);
+            const repostaAfirmativaAposSugestaoIA = /(seguir com a contratação|continuar com a contratação|deseja contratar|se quiser contratar|vamos iniciar a contratação|posso gerar o link)/i.test(aiTextRaw) && /\b(sim|isso mesmo|pode ser|quero|exato|bora|vamos|pode sim|com certeza|ok|manda)\b/i.test(humanTextRaw);
+            
+            if (intenClienteFechar || repostaAfirmativaAposSugestaoIA) stage = 'Fechamento';
+
+            const horasDesdeUltimaMsg = (Date.now() - s.ultima_mensagem_at.getTime()) / (1000 * 60 * 60);
+            const isAbandono = !s.lastMsgIsHuman && stage !== 'Fechamento' && horasDesdeUltimaMsg > 2;
+
+            // PLANO E VIDAS
+            const iaCitouValor = /R\$/.test(aiTextRaw);
+            const iaDissePlanoEmp = /(plano empresarial)/i.test(aiTextRaw);
+            const humanDisseCnpjMei = /\b(mei|cnpj)\b/i.test(humanTextRaw);
+            const isEmp = (iaDissePlanoEmp && iaCitouValor) || (humanDisseCnpjMei && iaCitouValor);
+
+            const isFamAI = /(plano familiar|plano individual|familiar\/individual|individual\/familiar)/i.test(aiTextRaw);
+            const isFamHuman = /(familiar|família|familia|esposa|esposo|marido|mulher|filho[sa]?|filha|dependente[s]?|somos\s+\d|pra\s+mim\s+e|para\s+mim\s+e|pra\s+n[oó]s|para\s+n[oó]s|minha\s+esposa|meu\s+marido|meu\s+filho|minha\s+filha|minha\s+m[aã]e|meu\s+pai|irm[aã][o]?)/i.test(humanTextRaw);
+            const isFam = !isEmp && (isFamAI || isFamHuman);
+
+            const plano_type = isEmp ? 'empresarial' : (isFam ? 'familiar' : 'nao_classificado');
+
+            let vidasDetectadas = 0;
+            const pessoasMatch = aiTextRaw.match(/\b(\d+)\s*pessoas?\b/i);
+            if (pessoasMatch) vidasDetectadas = parseInt(pessoasMatch[1]);
+            else {
+                const ordinaisMap: Record<string, number> = { 'dois': 2, 'duas': 2, 'tres': 3, 'tr\u00eas': 3, 'quatro': 4, 'cinco': 5, 'seis': 6 };
+                for (const [palavra, qtd] of Object.entries(ordinaisMap)) {
+                    if (new RegExp('\\b' + palavra + '\\b', 'i').test(aiTextRaw)) { vidasDetectadas = qtd; break; }
+                }
+                if (vidasDetectadas === 0) {
+                    const idadesMatch = aiTextRaw.match(/(?:para\s+\d+\s+anos|de\s+\d+\s+anos|com\s+\d+\s+anos|\d+\s+anos)/gi);
+                    const uniqueIdades = new Set(idadesMatch?.map(m => m.trim().toLowerCase()) || []);
+                    vidasDetectadas = uniqueIdades.size > 0 ? uniqueIdades.size : 1;
+                }
+            }
+            if (vidasDetectadas < 1) vidasDetectadas = 1;
+            if (isEmp && vidasDetectadas < 2) vidasDetectadas = 2;
+            if (vidasDetectadas > 20) vidasDetectadas = 20;
+
+            // TICKET ESTIMADO
+            let ticket_estimado = null;
+            if (isEmp || isFam) {
+                const regexCopartCtx = /coparticipa[cç][aã]o|simula[cç][aã]o|estimad[ao]|estimativa|por sess[aã]o|por uso|por procedimento|al[eé]m da mensalidade/i;
+                const aiTextParaTicket = aiTextRaw.split(/(?<=[.!?])\s+/).filter((sent: string) => !regexCopartCtx.test(sent)).join(' ');
+                
+                const totalPatterns = [
+                    /total\s*mensal[^R]{0,40}R\$\s*([0-9][0-9.,]+)/gi,
+                    /total\s*mensal\s*(?:pro\s*plano\b)?[^R]{0,60}R\$\s*([0-9][0-9.,]+)/gi,
+                    /totalizando\s*R\$\s*([0-9][0-9.,]+)/gi,
+                    /(?:valor\s*total|total\s*(?:da|do)\s*(?:plano|mensalidade))\s*(?:fica|é)?\s*R\$\s*([0-9][0-9.,]+)/gi,
+                    /(?:-\s*)?[Tt]otal\s*:\s*R\$\s*([0-9][0-9.,]+)/gi,
+                    /sai\s*a\s*R\$\s*([0-9][0-9.,]+)/gi,
+                    /é\s*R\$\s*([0-9][0-9.,]+)\s*(?:mensais|por\s*m[eê]s|ao\s*m[eê]s)/gi,
+                    /fica\s*R\$\s*([0-9][0-9.,]+)\s*(?:mensais|por\s*m[eê]s|ao\s*m[eê]s)/gi,
+                ];
+                
+                const valoresEncontrados: number[] = [];
+                for (const pattern of totalPatterns) {
+                    const patternCopy = new RegExp(pattern.source, 'gi');
+                    let mVal;
+                    while ((mVal = patternCopy.exec(aiTextParaTicket)) !== null) {
+                        const raw = mVal[1].replace(/\./g, '').replace(',', '.');
+                        const val = parseFloat(raw);
+                        const maxValido = isEmp ? 50000 : 5000;
+                        if (val >= 50 && val <= maxValido) valoresEncontrados.push(val);
+                    }
+                }
+                if (valoresEncontrados.length > 0) ticket_estimado = Math.max(...valoresEncontrados);
+            }
+
+            // DEPENDENTE
+            let dCount = "0";
+            const pessoasCotadas = (aiTextRaw.match(/(?:para\s+\d+\s+anos|filho[a]?\s+de\s+\d+|beb[eê]\s+de\s+\d+|m[eê]s|criança)/gi) || []).length;
+            if (pessoasCotadas >= 6) dCount = "5+";
+            else if (pessoasCotadas === 5) dCount = "4";
+            else if (pessoasCotadas === 4) dCount = "3";
+            else if (pessoasCotadas === 3) dCount = "2";
+            else if (pessoasCotadas === 2) dCount = "1";
+            if (/\b5\+?\s*(filhos?|dependentes?)/i.test(humanTextRaw) || /[6-9]\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "5+";
+            else if (/\b4\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "4";
+            else if (/\b3\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "3";
+            else if (/\b2\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "2";
+
+            // FAIXAS ETARIAS
+            const faixas: string[] = [];
+            let match;
+            const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos/gi;
+            const sourceText = aiTextRaw + ' ' + humanTextRaw;
+            while ((match = ageRegex.exec(sourceText)) !== null) {
+                const age = parseInt(match[1]);
+                if (age >= 1 && age <= 100) {
+                    if (age <= 17) faixas.push('Ate 18');
+                    else if (age <= 29) faixas.push('18-29');
+                    else if (age <= 39) faixas.push('30-39');
+                    else if (age <= 49) faixas.push('40-49');
+                    else if (age <= 59) faixas.push('50-59');
+                    else faixas.push('60+');
+                }
+            }
+
             return {
                 session_id: s.session_id,
                 contact_phone: s.contact_phone,
@@ -395,15 +507,21 @@ class AnalyticsEngine {
                 total_messages: s.total_messages,
                 human_messages_count: s.human_messages_count,
                 ai_messages_count: s.ai_messages_count,
-                human_text: human_text,
-                ai_text: s.ai_text.join(' '),
+                human_text: humanTextRaw,
+                ai_text: aiTextRaw,
                 duracao_minutos: (s.ultima_mensagem_at.getTime() - s.primeira_mensagem_at.getTime()) / (1000 * 60),
                 horarios_mensagens: s.horarios_mensagens,
                 intervencao_humana: s.intervencao_humana,
-                frustracao_detectada: /(não entendi|não é isso|mas eu falei|atendente|humano|errado|você não entendeu|não ajuda|repetir)/i.test(human_text),
+                frustracao_detectada: /(não entendi|não é isso|mas eu falei|atendente|humano|errado|você não entendeu|não ajuda|repetir)/i.test(humanTextRaw),
                 sessoes_longas: s.total_messages > 20,
-                // Os campos de "stage" e "ticket" que serao movidos pra consolidacao no futuro 
-                // para pular processMessages se não precisarmos de recriar as sessoes ao vivo.
+                // NOVOS CAMPOS PREENCHIDOS:
+                stage,
+                is_abandono: isAbandono,
+                plano_type,
+                vidas_cotadas: vidasDetectadas,
+                ticket_estimado,
+                dependentes: dCount,
+                faixas_etarias: faixas,
             };
         });
 
