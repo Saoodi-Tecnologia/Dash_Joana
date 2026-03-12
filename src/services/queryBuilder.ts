@@ -81,32 +81,18 @@ async function fetchMessages(filters: {
 }
 
 async function fetchSessionsWithClosing(): Promise<Set<string>> {
-    const closedSessions = new Set<string>();
-
-    // Primeiro busco das consolidadas
-    const { data: consolidado } = await supabase
-        .schema('dashboard')
-        .from('dash_sessoes_consolidadas')
-        .select('session_id')
-        .eq('stage', 'Fechamento');
-
-    if (consolidado) {
-        consolidado.forEach(row => closedSessions.add(row.session_id));
-    }
-
-    // Busca recente para preencher gaps nao consolidados ainda
-    const { data: realtimeData } = await supabase
+    const { data } = await supabase
         .schema('dashboard')
         .from('dash_mensagens_realtime')
         .select('session_id, content, message_type')
         .eq('event_type', 'message_created')
         .not('received_at', 'is', null)
-        .order('received_at', { ascending: false })
-        .limit(1000);
+        .limit(4000);
 
+    const closedSessions = new Set<string>();
     const sessions: Record<string, { ai: string, human: string }> = {};
 
-    realtimeData?.forEach((r: Record<string, unknown>) => {
+    data?.forEach((r: Record<string, unknown>) => {
         const sid = r.session_id as string;
         if (!sessions[sid]) sessions[sid] = { ai: '', human: '' };
         const content = ((r.content as string) || '').toLowerCase();
@@ -135,10 +121,8 @@ async function fetchSessionsWithClosing(): Promise<Set<string>> {
 async function handleObjecoes(): Promise<QueryResult> {
     const closedSessions = await fetchSessionsWithClosing();
 
-    const { data: cData } = await supabase.schema('dashboard').from('dash_sessoes_consolidadas').select('session_id, human_text, primeira_mensagem_at').order('primeira_mensagem_at', { ascending: false }).limit(200);
-    
     // Pega mensagens humanas de sessões que NÃO fecharam
-    const { data: rData } = await supabase
+    const { data } = await supabase
         .schema('dashboard')
         .from('dash_mensagens_realtime')
         .select('session_id, content, received_at')
@@ -146,7 +130,7 @@ async function handleObjecoes(): Promise<QueryResult> {
         .eq('message_type', 'incoming')
         .not('received_at', 'is', null)
         .order('received_at', { ascending: false })
-        .limit(300);
+        .limit(1000);
 
     const objectionKeywords = [
         'caro', 'preço', 'valor', 'coparticipação', 'copart', 'tabela', 'não consigo',
@@ -155,21 +139,12 @@ async function handleObjecoes(): Promise<QueryResult> {
         'não tenho dinheiro', 'mês que vem', 'depois', 'não posso', 'obrigado nao'
     ];
 
-    let combined = (rData || []).map((r: Record<string, unknown>) => ({
-        session_id: r.session_id as string,
-        content: (r.content as string) || '',
-        created_at: r.received_at as string,
-    }));
-
-    (cData || []).forEach((c: any) => {
-        combined.push({
-            session_id: c.session_id,
-            content: (c.human_text as string) || '',
-            created_at: c.primeira_mensagem_at as string
-        })
-    });
-
-    const rows = combined
+    const rows = (data || [])
+        .map((r: Record<string, unknown>) => ({
+            session_id: r.session_id as string,
+            content: (r.content as string) || '',
+            created_at: r.received_at as string,
+        }))
         .filter(r =>
             !closedSessions.has(r.session_id) &&
             objectionKeywords.some(kw => r.content.toLowerCase().includes(kw))

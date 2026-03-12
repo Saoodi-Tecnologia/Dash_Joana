@@ -491,16 +491,18 @@ class AnalyticsEngine {
             else if (/\b3\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "3";
             else if (/\b2\s*(filhos?|dependentes?)/i.test(humanTextRaw)) dCount = "2";
 
-            // IDADES REAIS COTADAS - fonte exclusiva: mensagens genuinas da IA com valor R$
-            // Filtra apenas mensagens de cotacao real (que contem R$) removendo textos de politica/regra
-            const aiCotacaoRaw = s.ai_cotacao_text
-                .filter((m: string) => /R\$/.test(m))
-                .join(' ');
+            // IDADES REAIS COTADAS
+            // Usa todo ai_text mas remove frases de politica/regra que contaem idades genericas
+            // Ex: "filhos ate 24 anos se estudando", "faixa etaria 00 a 17 anos"
+            const aiTextSemPolitica = aiTextRaw
+                .replace(/(?:filhos?|dependentes?)\s+(?:at[ée]|com)?\s*\d{1,3}\s*anos?[^.!?]*/gi, '')
+                .replace(/faixa\s+et[aá]ria\s+\d{1,3}\s+a\s+\d{1,3}\s+anos?[^.!?]*/gi, '')
+                .replace(/\d{1,3}\s*(?:a|at[ée])\s*\d{1,3}\s+anos?/gi, '');
             const idadesExtras: number[] = [];
             let match;
             const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos?|m[eê]s(?:es)?)/gi;
             const extractUniqueAges = new Set<number>();
-            while ((match = ageRegex.exec(aiCotacaoRaw)) !== null) {
+            while ((match = ageRegex.exec(aiTextSemPolitica)) !== null) {
                 const raw = parseInt(match[1]);
                 const isMes = /m[eê]s/i.test(match[0]);
                 const age = isMes ? 0 : raw;
@@ -556,31 +558,9 @@ class AnalyticsEngine {
             return this.rawMessages;
         }
 
-        let allConsolidate: any[] = [];
-        let from1 = 0;
-        const jump1 = 1000;
-
-        while (true) {
-            let query = supabase.schema('dashboard').from('dash_sessoes_consolidadas').select('*').range(from1, from1 + jump1 - 1);
-            if (minDate) query = query.gte('ultima_mensagem_at', minDate.toISOString());
-            if (maxDate) query = query.lte('primeira_mensagem_at', maxDate.toISOString());
-
-            const { data, error } = await query;
-            if (error || !data || data.length === 0) break;
-            allConsolidate = allConsolidate.concat(data);
-            if (data.length < jump1) break;
-            from1 += jump1;
-        }
-
-        let maxRefStr = '1970-01-01T00:00:00.000Z';
-        if (allConsolidate.length > 0) {
-            const maxRef = new Date(Math.max(...allConsolidate.map(c => new Date(c.ultima_mensagem_at).getTime())));
-            maxRefStr = maxRef.toISOString();
-        }
-
-        let allNewMessages: any[] = [];
-        let from2 = 0;
-        const jump2 = 1000;
+        let allMessages: any[] = [];
+        let from = 0;
+        const jump = 1000;
 
         while (true) {
             let query = supabase.schema('dashboard')
@@ -589,99 +569,25 @@ class AnalyticsEngine {
                 .eq('event_type', 'message_created')
                 .not('received_at', 'is', null)
                 .order('received_at', { ascending: true })
-                .range(from2, from2 + jump2 - 1);
+                .range(from, from + jump - 1);
 
-            // Busca as mensagens NOVAS em tempo real, respeitando o filtro para evitar carregar a base toda
-            query = query.gt('received_at', maxRefStr);
+            if (minDate) query = query.gte('received_at', minDate.toISOString());
             if (maxDate) query = query.lte('received_at', maxDate.toISOString());
 
             const { data, error } = await query;
             if (error || !data || data.length === 0) break;
-            allNewMessages = allNewMessages.concat(data);
-            if (data.length < jump2) break;
-            from2 += jump2;
+            
+            allMessages = allMessages.concat(data);
+            if (data.length < jump) break;
+            from += jump;
         }
 
-        // Reconstrói mensagens falsas perfeitamente compatíveis a partir do Consolidado
-        const reconstructed: any[] = [];
-        allConsolidate.forEach(c => {
-            const isAbandono = c.frustracao_detectada || false; // Usamos esse boolean apenas como ref de abandono na insight, dps a insight refaz
-            
-            // 1. Mensagem simulada do humano 
-            if (c.human_text) {
-                reconstructed.push({
-                    session_id: c.session_id,
-                    contact_phone: c.contact_phone,
-                    content: c.human_text,
-                    message_type: 'incoming',
-                    is_ia: false,
-                    received_at: c.primeira_mensagem_at, // Data base para tracking
-                    conversation_status: isAbandono ? 'open' : 'resolved', 
-                    atendimento_tipo: isAbandono ? 'suporte' : 'venda_confirmada' // Para a Weekly Insight
-                });
-            }
-
-            // 2. Mensagem simulada da IA 
-            if (c.ai_text) {
-                reconstructed.push({
-                    session_id: c.session_id,
-                    contact_phone: c.contact_phone,
-                    content: c.ai_text,
-                    message_type: 'template', // outgoing da IA
-                    is_ia: true,
-                    received_at: c.ultima_mensagem_at, // Ultima interacao salva a duracao total da sessao
-                    conversation_status: isAbandono ? 'open' : 'resolved',
-                    atendimento_tipo: isAbandono ? 'suporte' : 'venda_confirmada'
-                });
-            }
-
-            // 3. Fake row p/ forcar true em "sessoesComIntervencaoHumana" se necessario.
-            if (c.intervencao_humana) {
-                reconstructed.push({
-                    session_id: c.session_id,
-                    contact_phone: c.contact_phone,
-                    content: '', // Sem conteudo pois e irrelevante
-                    message_type: 'outgoing', // Representação humana atendendo
-                    is_ia: false,
-                    received_at: c.primeira_mensagem_at
-                });
-            }
-
-            // 4. Injeta placeholders de conteudo vazio para restaurar a contagem exata (kpi de mensagens/horario pico)
-            const hours = c.horarios_mensagens || [];
-            if (hours.length > 0) {
-                // Remove as ja inseridas nas rows primárias para nao duplicar
-                const jaInseridas = (c.human_text ? 1 : 0) + (c.ai_text ? 1 : 0) + (c.intervencao_humana ? 1 : 0);
-                const toInject = Math.max(0, c.total_messages - jaInseridas);
-                
-                for (let i = 0; i < toInject; i++) {
-                    const hIndex = (jaInseridas + i) % hours.length;
-                    const d = new Date(c.primeira_mensagem_at);
-                    d.setHours(hours[hIndex]);
-                    
-                    reconstructed.push({
-                        session_id: c.session_id,
-                        contact_phone: c.contact_phone,
-                        content: '', // Texto omitido para nao sujar RegExp
-                        message_type: 'placeholder', // Fallback, vai cair como isHuman=false
-                        is_ia: true,
-                        received_at: d.toISOString() // Hora real pra recuperar o pico!
-                    });
-                }
-            }
-        });
-
-        const unifiedMessages = reconstructed.concat(allNewMessages);
-
-        // Sorting by received_at just in case because processMessages iterates through them to track durations
-        unifiedMessages.sort((a, b) => new Date(a.received_at).getTime() - new Date(b.received_at).getTime());
-
         if (!minDate && !maxDate) {
-            this.rawMessages = unifiedMessages;
+            this.rawMessages = allMessages;
             this.rawMessagesFetchedAt = now;
         }
         
-        return unifiedMessages;
+        return allMessages;
     }
 
     // ============================================================
@@ -1351,17 +1257,19 @@ Retorne APENAS o JSON válido.`;
             }
 
             // -------------------------------------------------------
-            // IDADES REAIS - fonte exclusiva: mensagens genuinas da IA (is_ia=true) com R$
-            // Remove ruido de textos de politica, atendentes humanos e mensagens informativas
-            const aiCotacaoStr = session.aiOnlyMessages
-                .filter((m: string) => /R\$/.test(m))
-                .join(' ');
+            // IDADES REAIS - usa todo aiMessages, mas remove frases de politica/regra
+            // Ex: "filhos ate 24 anos se estudando" e "faixa etaria 00 a 17 anos"
+            const aiFullText = session.aiMessages.join(' ');
+            const aiTextSemPolitica = aiFullText
+                .replace(/(?:filhos?|dependentes?)\s+(?:at[ée]|com)?\s*\d{1,3}\s*anos?[^.!?]*/gi, '')
+                .replace(/faixa\s+et[aá]ria\s+\d{1,3}\s+a\s+\d{1,3}\s+anos?[^.!?]*/gi, '')
+                .replace(/\d{1,3}\s*(?:a|at[ée])\s*\d{1,3}\s+anos?/gi, '');
             const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos?|m[eê]s(?:es)?)/gi;
             let match;
-            const sessionAges = new Set<string>(); // Buckets front
+            const sessionAges = new Set<string>();
             const sessionUniqueAgesRebuilt = new Set<number>();
             
-            while ((match = ageRegex.exec(aiCotacaoStr)) !== null) {
+            while ((match = ageRegex.exec(aiTextSemPolitica)) !== null) {
                 const raw = parseInt(match[1]);
                 const isMes = /m[eê]s/i.test(match[0]);
                 const age = isMes ? 0 : raw;
