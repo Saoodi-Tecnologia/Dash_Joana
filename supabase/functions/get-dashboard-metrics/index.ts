@@ -381,7 +381,10 @@ class AnalyticsEngine {
                 s.lastMsgIsHuman = isHuman;
             }
             
-            s.horarios_mensagens.push(ts.getHours());
+            const mHour = ts.getHours();
+            if (!s.horarios_mensagens.includes(mHour)) {
+                s.horarios_mensagens.push(mHour);
+            }
 
             if (row.message_type === 'outgoing' && row.is_ia === false) {
                 s.intervencao_humana = true;
