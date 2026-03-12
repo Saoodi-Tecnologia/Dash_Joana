@@ -410,12 +410,12 @@ class AnalyticsEngine {
 
             // PLANO E VIDAS
             const iaCitouValor = /R\$/.test(aiTextRaw);
-            const iaDissePlanoEmp = /(plano empresarial)/i.test(aiTextRaw);
-            const humanDisseCnpjMei = /\b(mei|cnpj)\b/i.test(humanTextRaw);
+            const iaDissePlanoEmp = /(plano empresarial|pessoa jur[ií]dica|pj)/i.test(aiTextRaw);
+            const humanDisseCnpjMei = /\b(mei|cnpj|pessoa jur[ií]dica|pj|empresa)\b/i.test(humanTextRaw);
             const isEmp = (iaDissePlanoEmp && iaCitouValor) || (humanDisseCnpjMei && iaCitouValor);
 
-            const isFamAI = /(plano familiar|plano individual|familiar\/individual|individual\/familiar)/i.test(aiTextRaw);
-            const isFamHuman = /(familiar|família|familia|esposa|esposo|marido|mulher|filho[sa]?|filha|dependente[s]?|somos\s+\d|pra\s+mim\s+e|para\s+mim\s+e|pra\s+n[oó]s|para\s+n[oó]s|minha\s+esposa|meu\s+marido|meu\s+filho|minha\s+filha|minha\s+m[aã]e|meu\s+pai|irm[aã][o]?)/i.test(humanTextRaw);
+            const isFamAI = /(plano familiar|plano individual|familiar\/individual|individual\/familiar|pessoa f[ií]sica|pf)/i.test(aiTextRaw);
+            const isFamHuman = /(familiar|família|familia|esposa|esposo|marido|mulher|filho[sa]?|filha|dependente[s]?|somos\s+\d|pra\s+mim\s+e|para\s+mim\s+e|pra\s+n[oó]s|para\s+n[oó]s|minha\s+esposa|meu\s+marido|meu\s+filho|minha\s+filha|minha\s+m[aã]e|meu\s+pai|irm[aã][o]?|pessoa f[ií]sica|pf|individual)/i.test(humanTextRaw);
             const isFam = !isEmp && (isFamAI || isFamHuman);
 
             const plano_type = isEmp ? 'empresarial' : (isFam ? 'familiar' : 'nao_classificado');
@@ -1192,15 +1192,15 @@ Retorne APENAS o JSON válido.`;
             const humanTextRaw = session.humanMessages.join(' ');
 
             const iaCitouValor = /R\$/.test(aiTextRaw);
-            const iaDissePlanoEmp = /(plano empresarial)/i.test(aiTextRaw);
-            const humanDisseCnpjMei = /\b(mei|cnpj)\b/i.test(humanTextRaw);
+            const iaDissePlanoEmp = /(plano empresarial|pessoa jur[ií]dica|pj)/i.test(aiTextRaw);
+            const humanDisseCnpjMei = /\b(mei|cnpj|pessoa jur[ií]dica|pj|empresa)\b/i.test(humanTextRaw);
 
             // Empresarial confirmado = Joana falou "plano empresarial" + cotou OU cliente disse MEI/CNPJ + IA cotou
             const isEmp = (iaDissePlanoEmp && iaCitouValor) || (humanDisseCnpjMei && iaCitouValor);
 
             // Familiar se a IA confirmou, OU se o cliente mencionou contexto familiar no texto dele
-            const isFamAI = /(plano familiar|plano individual|familiar\/individual|individual\/familiar)/i.test(aiTextRaw);
-            const isFamHuman = /(familiar|família|familia|esposa|esposo|marido|mulher|filho[sa]?|filha|dependente[s]?|somos\s+\d|pra\s+mim\s+e|para\s+mim\s+e|pra\s+n[oó]s|para\s+n[oó]s|minha\s+esposa|meu\s+marido|meu\s+filho|minha\s+filha|minha\s+m[aã]e|meu\s+pai|irm[aã][o]?)/i.test(humanTextRaw);
+            const isFamAI = /(plano familiar|plano individual|familiar\/individual|individual\/familiar|pessoa f[ií]sica|pf)/i.test(aiTextRaw);
+            const isFamHuman = /(familiar|família|familia|esposa|esposo|marido|mulher|filho[sa]?|filha|dependente[s]?|somos\s+\d|pra\s+mim\s+e|para\s+mim\s+e|pra\s+n[oó]s|para\s+n[oó]s|minha\s+esposa|meu\s+marido|meu\s+filho|minha\s+filha|minha\s+m[aã]e|meu\s+pai|irm[aã][o]?|pessoa f[ií]sica|pf|individual)/i.test(humanTextRaw);
             const isFam = !isEmp && (isFamAI || isFamHuman);
 
             // Detecta numero real de vidas cotadas pela Joana na sessao
