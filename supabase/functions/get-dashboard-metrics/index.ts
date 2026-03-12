@@ -308,33 +308,250 @@ function calcTrend(atual: number, anterior: number): number | null {
 // Analytics Engine
 // ============================================================
 class AnalyticsEngine {
-    // Busca todas as mensagens brutas do banco (sem filtro de periodo)
-    // O filtro sera aplicado em memoria para que a comparacao com o periodo anterior funcione
+    // Cache memory para acelerar comparacoes de prior-period
     private rawMessages: any[] | null = null;
     private rawMessagesFetchedAt: number | null = null;
 
-    private async getRawMessages(): Promise<any[]> {
-        // Cache de 10 minutos para as mensagens brutas
+    // ============================================================
+    // CONSOLIDAÇÃO DIÁRIA (DATA WAREHOUSE)
+    // ============================================================
+    async consolidateSessions(): Promise<{ success: boolean, consolidated: number, errors: string[] }> {
+        console.log('Iniciando consolidacao de sessoes...');
+        
+        // Em um cenario real de milhoes de linhas, faríamos por lotes (batch iterativo).
+        const allMessages = await this.getRawMessages();
+        
+        if (allMessages.length === 0) return { success: true, consolidated: 0, errors: [] };
+
+        // Pega a data mais recente já processada no banco
+        const { data: lastProc } = await supabase
+            .schema('dashboard')
+            .from('dash_sessoes_consolidadas')
+            .select('ultima_mensagem_at')
+            .order('ultima_mensagem_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        const lastProcDate = lastProc?.ultima_mensagem_at ? new Date(lastProc.ultima_mensagem_at) : new Date(0);
+
+        // Agrupa apenas mensagens mais recentes que o ultimo processamento
+        const newMessages = allMessages.filter(m => new Date(m.received_at || m.chatwoot_created_at) > lastProcDate);
+
+        if (newMessages.length === 0) return { success: true, consolidated: 0, errors: [] };
+
+        const sessions: Record<string, any> = {};
+        
+        newMessages.forEach(row => {
+            const sid = row.session_id;
+            if (!sessions[sid]) {
+                sessions[sid] = {
+                    session_id: sid,
+                    contact_phone: row.contact_phone || null,
+                    human_text: [],
+                    ai_text: [],
+                    total_messages: 0,
+                    human_messages_count: 0,
+                    ai_messages_count: 0,
+                    primeira_mensagem_at: new Date(row.received_at || row.chatwoot_created_at),
+                    ultima_mensagem_at: new Date(row.received_at || row.chatwoot_created_at),
+                    horarios_mensagens: [], // para pico de horas
+                    intervencao_humana: false,
+                };
+            }
+            
+            const s = sessions[sid];
+            const content = (row.content as string) || '';
+            const ts = new Date(row.received_at || row.chatwoot_created_at);
+            const isHuman = row.message_type === 'incoming';
+
+            s.total_messages++;
+            if (isHuman) {
+                s.human_messages_count++;
+                s.human_text.push(content);
+            } else {
+                s.ai_messages_count++;
+                s.ai_text.push(content);
+            }
+
+            if (ts < s.primeira_mensagem_at) s.primeira_mensagem_at = ts;
+            if (ts > s.ultima_mensagem_at) s.ultima_mensagem_at = ts;
+            
+            s.horarios_mensagens.push(ts.getHours());
+
+            if (row.message_type === 'outgoing' && row.is_ia === false) {
+                s.intervencao_humana = true;
+            }
+        });
+
+        // Prepara rows para o banco
+        const upsertRows = Object.values(sessions).map(s => {
+            const human_text = s.human_text.join(' ');
+            return {
+                session_id: s.session_id,
+                contact_phone: s.contact_phone,
+                data_referencia: s.primeira_mensagem_at.toISOString(),
+                primeira_mensagem_at: s.primeira_mensagem_at.toISOString(),
+                ultima_mensagem_at: s.ultima_mensagem_at.toISOString(),
+                total_messages: s.total_messages,
+                human_messages_count: s.human_messages_count,
+                ai_messages_count: s.ai_messages_count,
+                human_text: human_text,
+                ai_text: s.ai_text.join(' '),
+                duracao_minutos: (s.ultima_mensagem_at.getTime() - s.primeira_mensagem_at.getTime()) / (1000 * 60),
+                horarios_mensagens: s.horarios_mensagens,
+                intervencao_humana: s.intervencao_humana,
+                frustracao_detectada: /(não entendi|não é isso|mas eu falei|atendente|humano|errado|você não entendeu|não ajuda|repetir)/i.test(human_text),
+                sessoes_longas: s.total_messages > 20,
+                // Os campos de "stage" e "ticket" que serao movidos pra consolidacao no futuro 
+                // para pular processMessages se não precisarmos de recriar as sessoes ao vivo.
+            };
+        });
+
+        const errors: string[] = [];
+        
+        // Salva lotes
+        const chunk = 500;
+        for (let i = 0; i < upsertRows.length; i += chunk) {
+            const batch = upsertRows.slice(i, i + chunk);
+            const { error } = await supabase.schema('dashboard').from('dash_sessoes_consolidadas').upsert(batch);
+            if (error) errors.push(error.message);
+        }
+
+        return { success: errors.length === 0, consolidated: upsertRows.length, errors };
+    }
+
+    private async getRawMessages(minDate?: Date, maxDate?: Date): Promise<any[]> {
         const now = Date.now();
-        if (this.rawMessages && this.rawMessagesFetchedAt && (now - this.rawMessagesFetchedAt) < 10 * 60 * 1000) {
+        if (!minDate && !maxDate && this.rawMessages && this.rawMessagesFetchedAt && (now - this.rawMessagesFetchedAt) < 10 * 60 * 1000) {
             return this.rawMessages;
         }
 
-        const { data: messages, error } = await supabase
-            .schema('dashboard')
-            .from('dash_mensagens_realtime')
-            .select('session_id, conversation_id, contact_phone, content, message_type, is_ia, sender_type, received_at, chatwoot_created_at, atendimento_tipo, conversation_status')
-            .eq('event_type', 'message_created')
-            .not('received_at', 'is', null)
-            .order('received_at', { ascending: true });
+        let allConsolidate: any[] = [];
+        let from1 = 0;
+        const jump1 = 1000;
 
-        if (error || !messages) {
-            throw new Error('Falha ao buscar dados do historico.');
+        while (true) {
+            let query = supabase.schema('dashboard').from('dash_sessoes_consolidadas').select('*').range(from1, from1 + jump1 - 1);
+            if (minDate) query = query.gte('ultima_mensagem_at', minDate.toISOString());
+            if (maxDate) query = query.lte('primeira_mensagem_at', maxDate.toISOString());
+
+            const { data, error } = await query;
+            if (error || !data || data.length === 0) break;
+            allConsolidate = allConsolidate.concat(data);
+            if (data.length < jump1) break;
+            from1 += jump1;
         }
 
-        this.rawMessages = messages;
-        this.rawMessagesFetchedAt = now;
-        return messages;
+        let maxRefStr = '1970-01-01T00:00:00.000Z';
+        if (allConsolidate.length > 0) {
+            const maxRef = new Date(Math.max(...allConsolidate.map(c => new Date(c.ultima_mensagem_at).getTime())));
+            maxRefStr = maxRef.toISOString();
+        }
+
+        let allNewMessages: any[] = [];
+        let from2 = 0;
+        const jump2 = 1000;
+
+        while (true) {
+            let query = supabase.schema('dashboard')
+                .from('dash_mensagens_realtime')
+                .select('session_id, conversation_id, contact_phone, content, message_type, is_ia, sender_type, received_at, chatwoot_created_at, atendimento_tipo, conversation_status')
+                .eq('event_type', 'message_created')
+                .not('received_at', 'is', null)
+                .order('received_at', { ascending: true })
+                .range(from2, from2 + jump2 - 1);
+
+            // Busca as mensagens NOVAS em tempo real, respeitando o filtro para evitar carregar a base toda
+            query = query.gt('received_at', maxRefStr);
+            if (maxDate) query = query.lte('received_at', maxDate.toISOString());
+
+            const { data, error } = await query;
+            if (error || !data || data.length === 0) break;
+            allNewMessages = allNewMessages.concat(data);
+            if (data.length < jump2) break;
+            from2 += jump2;
+        }
+
+        // Reconstrói mensagens falsas perfeitamente compatíveis a partir do Consolidado
+        const reconstructed: any[] = [];
+        allConsolidate.forEach(c => {
+            const isAbandono = c.frustracao_detectada || false; // Usamos esse boolean apenas como ref de abandono na insight, dps a insight refaz
+            
+            // 1. Mensagem simulada do humano 
+            if (c.human_text) {
+                reconstructed.push({
+                    session_id: c.session_id,
+                    contact_phone: c.contact_phone,
+                    content: c.human_text,
+                    message_type: 'incoming',
+                    is_ia: false,
+                    received_at: c.primeira_mensagem_at, // Data base para tracking
+                    conversation_status: isAbandono ? 'open' : 'resolved', 
+                    atendimento_tipo: isAbandono ? 'suporte' : 'venda_confirmada' // Para a Weekly Insight
+                });
+            }
+
+            // 2. Mensagem simulada da IA 
+            if (c.ai_text) {
+                reconstructed.push({
+                    session_id: c.session_id,
+                    contact_phone: c.contact_phone,
+                    content: c.ai_text,
+                    message_type: 'template', // outgoing da IA
+                    is_ia: true,
+                    received_at: c.ultima_mensagem_at, // Ultima interacao salva a duracao total da sessao
+                    conversation_status: isAbandono ? 'open' : 'resolved',
+                    atendimento_tipo: isAbandono ? 'suporte' : 'venda_confirmada'
+                });
+            }
+
+            // 3. Fake row p/ forcar true em "sessoesComIntervencaoHumana" se necessario.
+            if (c.intervencao_humana) {
+                reconstructed.push({
+                    session_id: c.session_id,
+                    contact_phone: c.contact_phone,
+                    content: '', // Sem conteudo pois e irrelevante
+                    message_type: 'outgoing', // Representação humana atendendo
+                    is_ia: false,
+                    received_at: c.primeira_mensagem_at
+                });
+            }
+
+            // 4. Injeta placeholders de conteudo vazio para restaurar a contagem exata (kpi de mensagens/horario pico)
+            const hours = c.horarios_mensagens || [];
+            if (hours.length > 0) {
+                // Remove as ja inseridas nas rows primárias para nao duplicar
+                const jaInseridas = (c.human_text ? 1 : 0) + (c.ai_text ? 1 : 0) + (c.intervencao_humana ? 1 : 0);
+                const toInject = Math.max(0, c.total_messages - jaInseridas);
+                
+                for (let i = 0; i < toInject; i++) {
+                    const hIndex = (jaInseridas + i) % hours.length;
+                    const d = new Date(c.primeira_mensagem_at);
+                    d.setHours(hours[hIndex]);
+                    
+                    reconstructed.push({
+                        session_id: c.session_id,
+                        contact_phone: c.contact_phone,
+                        content: '', // Texto omitido para nao sujar RegExp
+                        message_type: 'placeholder', // Fallback, vai cair como isHuman=false
+                        is_ia: true,
+                        received_at: d.toISOString() // Hora real pra recuperar o pico!
+                    });
+                }
+            }
+        });
+
+        const unifiedMessages = reconstructed.concat(allNewMessages);
+
+        // Sorting by received_at just in case because processMessages iterates through them to track durations
+        unifiedMessages.sort((a, b) => new Date(a.received_at).getTime() - new Date(b.received_at).getTime());
+
+        if (!minDate && !maxDate) {
+            this.rawMessages = unifiedMessages;
+            this.rawMessagesFetchedAt = now;
+        }
+        
+        return unifiedMessages;
     }
 
     // ============================================================
@@ -531,7 +748,6 @@ Retorne APENAS o JSON válido.`;
         }
 
         console.log('Calculating fresh metrics...');
-        const allMessages = await this.getRawMessages();
 
         // Determina o periodo atual
         let periodStart: Date;
@@ -546,16 +762,22 @@ Retorne APENAS o JSON válido.`;
             periodEnd = new Date();
         }
 
+        // Calcula o periodo anterior de mesmo tamanho para trends
+        const periodLengthMs = periodEnd.getTime() - periodStart.getTime();
+        const prevPeriodEnd = new Date(periodStart.getTime() - 1);
+        const prevPeriodStart = new Date(periodStart.getTime() - periodLengthMs);
+
+        // Otimizacao: se tiver filtro, abaixa APENAS os dados necessarios do atual + comparacao
+        const fetchStart = hasPeriodFilter ? prevPeriodStart : undefined;
+        const fetchEnd = hasPeriodFilter ? periodEnd : undefined;
+
+        const allMessages = await this.getRawMessages(fetchStart, fetchEnd);
+
         // Filtra mensagens do periodo atual
         const currentMessages = allMessages.filter(row => {
             const ts = new Date(row.received_at || row.chatwoot_created_at);
             return ts >= periodStart && ts <= periodEnd;
         });
-
-        // Calcula o periodo anterior de mesmo tamanho para trends
-        const periodLengthMs = periodEnd.getTime() - periodStart.getTime();
-        const prevPeriodEnd = new Date(periodStart.getTime() - 1);
-        const prevPeriodStart = new Date(periodStart.getTime() - periodLengthMs);
 
         const prevMessages = allMessages.filter(row => {
             const ts = new Date(row.received_at || row.chatwoot_created_at);
@@ -1309,9 +1531,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { forceRefetch, startDate, endDate, generateInsights } = await req.json().catch(() => ({}));
+    const { forceRefetch, startDate, endDate, generateInsights, action } = await req.json().catch(() => ({}));
     
     const engine = new AnalyticsEngine();
+
+    if (action === 'consolidate') {
+        const result = await engine.consolidateSessions();
+        return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+    }
     
     if (generateInsights) {
         const insights = await engine.generateWeeklyInsights(forceRefetch);
