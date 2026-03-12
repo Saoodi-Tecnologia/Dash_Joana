@@ -487,12 +487,14 @@ class AnalyticsEngine {
             let match;
             const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos)/gi;
             const sourceText = aiTextRaw + ' ' + humanTextRaw;
+            const extractUniqueAges = new Set<number>();
             while ((match = ageRegex.exec(sourceText)) !== null) {
                 const age = parseInt(match[1]);
                 if (age >= 0 && age <= 105) {
-                    idadesExtras.push(age);
+                    extractUniqueAges.add(age);
                 }
             }
+            extractUniqueAges.forEach(age => idadesExtras.push(age));
 
             return {
                 session_id: s.session_id,
@@ -1333,10 +1335,15 @@ Retorne APENAS o JSON válido.`;
             const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos/gi;
             let match;
             const sessionAges = new Set<string>(); // Buckets front
+            const sessionUniqueAgesRebuilt = new Set<number>();
             
             while ((match = ageRegex.exec(ageSourceText)) !== null) {
                 const age = parseInt(match[1]);
                 if (age < 0 || age > 105) continue;
+                sessionUniqueAgesRebuilt.add(age);
+            }
+            
+            sessionUniqueAgesRebuilt.forEach(age => {
                 idadesCotadasReal.push(age);
                 if (age <= 17)      sessionAges.add('Ate 18');
                 else if (age <= 29) sessionAges.add('18-29');
@@ -1344,7 +1351,7 @@ Retorne APENAS o JSON válido.`;
                 else if (age <= 49) sessionAges.add('40-49');
                 else if (age <= 59) sessionAges.add('50-59');
                 else                sessionAges.add('60+');
-            }
+            });
             // Sem fallback: se nao detectou idade, nao inventa faixa
             sessionAges.forEach(f => { faixas[f] = (faixas[f] || 0) + 1; });
 
