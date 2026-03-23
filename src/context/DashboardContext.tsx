@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { analyticsEngine } from '@/services/analyticsEngine';
-import type { DashboardMetrics, SelectedPeriod } from '@/types/dashboard';
+import type { DashboardMetrics, SelectedPeriod, WeeklyInsight } from '@/types/dashboard';
 
 // ============================================================
 // Dashboard Context — provider global de dados e estado da UI
@@ -23,7 +23,7 @@ interface DashboardContextValue {
     reload: (force?: boolean) => void;
     selectedPeriod: SelectedPeriod;
     setSelectedPeriod: (period: SelectedPeriod) => void;
-    weeklyInsights: Record<string, string>;
+    weeklyInsights: WeeklyInsight[];
     weeklyInsightsPeriodo: string | null;
     isLoadingInsights: boolean;
     reloadInsights: () => Promise<void>;
@@ -37,7 +37,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<string | null>(null);
     const [selectedPeriod, setSelectedPeriodState] = useState<SelectedPeriod>(getDefaultPeriod());
-    const [weeklyInsights, setWeeklyInsights] = useState<Record<string, string>>({});
+    const [weeklyInsights, setWeeklyInsights] = useState<WeeklyInsight[]>([]);
     const [weeklyInsightsPeriodo, setWeeklyInsightsPeriodo] = useState<string | null>(null);
     const [isLoadingInsights, setIsLoadingInsights] = useState(true);
 
@@ -62,25 +62,26 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const loadWeeklyInsights = async (force: boolean = false) => {
+    const loadWeeklyInsights = async (
+        force: boolean = false,
+        startDate?: Date,
+        endDate?: Date
+    ) => {
         setIsLoadingInsights(true);
         try {
-            const insights = await analyticsEngine.generateWeeklyInsights(force);
-            
-            const hasContent = insights?.principalInsight || 
-                               insights?.padroesIdentificados || 
-                               insights?.recomendacoesEstrategicas;
+            const result = await analyticsEngine.generateWeeklyInsights(force, startDate, endDate);
+            const history: WeeklyInsight[] = Array.isArray(result) ? result : [];
 
-            if (hasContent) {
-                setWeeklyInsights(insights);
-                setWeeklyInsightsPeriodo(insights.periodoStr ?? null);
+            if (history.length > 0) {
+                setWeeklyInsights(history);
+                setWeeklyInsightsPeriodo(history[0]?.periodoStr ?? null);
             } else {
-                setWeeklyInsights({});
+                setWeeklyInsights([]);
                 setWeeklyInsightsPeriodo(null);
             }
         } catch (e) {
             console.error('Erro ao carregar insights semanais:', e);
-            setWeeklyInsights({});
+            setWeeklyInsights([]);
             setWeeklyInsightsPeriodo(null);
         } finally {
             setIsLoadingInsights(false);
@@ -88,16 +89,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     };
 
     const reloadInsights = async () => {
-        await loadWeeklyInsights(true); // Força um novo insight do backend
+        // Forca geracao de novo insight para o periodo atual
+        await loadWeeklyInsights(true, selectedPeriod.startDate, selectedPeriod.endDate);
     };
 
     const setSelectedPeriod = (period: SelectedPeriod) => {
         setSelectedPeriodState(period);
         load(false, period);
+        // Insights sao independentes do periodo do dashboard — nao recarregar
     };
 
     useEffect(() => {
         load();
+        // Carrega todo o historico de insights (independente do periodo do dashboard)
         loadWeeklyInsights();
     }, []);
 

@@ -1,7 +1,3 @@
-// ============================================================
-// Dashboard Joana — Tipos centralizados
-// ============================================================
-
 export interface KPI {
     totalConversas: number;
     taxaConversao: number;
@@ -133,50 +129,6 @@ export interface ResumosIA {
     [key: string]: string | undefined;
 }
 
-// ============================================================
-// Insights Semanais — Agentes Especializados
-// ============================================================
-
-export interface InsightNegocio {
-    impactoFinanceiro: string;
-    perfilDoLead: string;
-    objecaoPredominante: string;
-    comportamentoDeAbandono: string;
-    acaoImediata: string;
-    ajusteDeProcesso: string;
-    evidenciasReais?: string[]; // Suporte a múltiplas frases reais
-    evidenciaReal?: string; // Legado
-}
-
-export interface InsightMarketing {
-    gancho1: string;
-    gancho2: string;
-    gancho3?: string;
-    copyFeed: string;
-    copyStories: string;
-    copyWhatsapp?: string;
-    copyPrincipal: string;
-    anguloDePositionamento: string;
-    segmentoSugerido: string;
-    antecipacaoDeObjecao: string;
-    palavrasChaveNegativas?: string;
-    tomDeVoz?: string;
-}
-
-export interface WeeklyInsight {
-    timestamp: number;
-    periodoStr: string;
-    periodoInicio?: number;
-    periodoFim?: number;
-    negocio?: InsightNegocio;
-    marketing?: InsightMarketing;
-    // Fallback para formato legado (antes dos agentes)
-    principalInsight?: string;
-    padroesIdentificados?: string;
-    recomendacoesEstrategicas?: string;
-    exemploReal?: string;
-}
-
 export interface PeriodoAnalise {
     inicio: string;
     fim: string;
@@ -196,18 +148,4 @@ export interface DashboardMetrics {
     engajamentoData: EngajamentoData;
     qualidadeData: QualidadeData;
     resumosIA: ResumosIA;
-}
-
-export type TabId = 'geral' | 'insights' | 'performance' | 'engajamento' | 'produtos' | 'qualidade';
-
-export interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
-}
-
-// Periodo selecionado pelo usuario
-export interface SelectedPeriod {
-    preset: '7d' | '30d' | '90d' | 'month' | 'custom';
-    startDate: Date;
-    endDate: Date;
 }

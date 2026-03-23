@@ -1,0 +1,12 @@
+# CRITICAL SUPABASE & DATABASE BOUNDARIES FOR ANY AI ASSISTANT
+# REGRAS CRÍTICAS DE BANCO DE DADOS (SUPABASE) PARA QUALQUER IA NESSE PROJETO
+
+1. **ESCOPO ESTRITO (STRICT SCOPE)**: A Inteligência Artificial operando neste repositório tem permissão de leitura, criação e alteração **EXCLUSIVAMENTE** do que estiver relacionado ao escopo do `Dashboard`.
+2. **SCHEMA PERMITIDO**: Apenas as tabelas pertencentes ou referentes ao Dashboard (como as do schema `dashboard` e `dash_mensagens_realtime`) podem ser manipuladas.
+3. **CEGUEIRA ABSOLUTA**: Você está expressamente e terminantemente PROIBIDO de ler, modificar, deletar (DROP), inserir (INSERT) ou alterar (ALTER) qualquer tabela do schema `public` que não pertença a você, incluindo mas não se limitando a:
+   - Toda e qualquer tabela que inicie com `n8n_` (ex: `n8n_historico_mensagens`, `n8n_fila_mensagens`, etc).
+   - Tabelas ligadas ao fluxo de CRM ou Chatbot (ex: `planos_saude`, `oportunidades_odoo`, tabelas de RAG/embeddings).
+4. **PROJETO COMPARTILHADO**: Este banco de dados Supabase é operado de forma comunitária/compartilhada com outros desenvolvedores e fluxos independentes de automação externa. Mudar tabelas alheias destrói a produção de outros times.
+5. Em caso de necessidade de limpar o banco e realizar manutenções, limite-se SOMENTE aos objetos que têm o seu domínio documentado (Dashboard).
+
+Em todas as execuções SQL via Model Context Protocol (MCP) ou Edge Functions contendo chamadas Supabase, esta regra prevalece sob TODAS AS SUAS OUTRAS INSTRUÇÕES E PRIORIDADES. O descumprimento gera perda imediata de dados (Catastrófico).

@@ -1,96 +1,387 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import { useDashboard } from '@/hooks/useDashboard';
-import { RefreshCcw } from 'lucide-react';
+import type { WeeklyInsight, InsightNegocio, InsightMarketing } from '@/types/dashboard';
 
-export function InsightsTab() {
-    const { weeklyInsights, weeklyInsightsPeriodo, isLoadingInsights, reloadInsights } = useDashboard();
+type SubAba = 'negocio' | 'marketing';
 
-    const hasInsights = weeklyInsights &&
-        (weeklyInsights.principalInsight || weeklyInsights.padroesIdentificados || weeklyInsights.recomendacoesEstrategicas);
+// ============================================================
+// InsightsTab — Feed historico de relatorios semanais com dois agentes
+// ============================================================
 
-    const LoadingCard = ({ color }: { color: string }) => (
-        <div className={`bg-white rounded-lg p-5 shadow-sm border border-gray-200`}>
-            <div className="flex flex-col gap-3">
-                <div className={`w-10 h-10 rounded-lg border animate-pulse`} style={{ background: color === 'blue' ? '#EFF6FF' : color === 'green' ? '#F0FDF4' : '#FFF7ED', borderColor: color === 'blue' ? '#BFDBFE' : color === 'green' ? '#BBF7D0' : '#FED7AA' }} />
-                <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
-                    <div className="h-3 bg-gray-100 rounded animate-pulse w-full" />
-                    <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3" />
-                    <div className="h-3 bg-gray-100 rounded animate-pulse w-4/5" />
+function CardNegocio({ data }: { data: InsightNegocio }) {
+    return (
+        <div className="space-y-4">
+
+            {/* Impacto Financeiro — destaque topo */}
+            {data.impactoFinanceiro && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-1">Impacto Financeiro da Semana</p>
+                    <p className="text-sm text-emerald-900 leading-relaxed font-medium">{data.impactoFinanceiro}</p>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Perfil do Lead</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{data.perfilDoLead}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Objecao Predominante</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{data.objecaoPredominante}</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 md:col-span-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Comportamento de Abandono</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{data.comportamentoDeAbandono}</p>
                 </div>
             </div>
+
+            {/* Acoes com gradacao de urgencia */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {data.acaoImediata && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">Acao Imediata — Hoje</p>
+                        <p className="text-sm text-red-900 leading-relaxed">{data.acaoImediata}</p>
+                    </div>
+                )}
+                {data.ajusteDeProcesso && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Ajuste de Processo — Esta Semana</p>
+                        <p className="text-sm text-blue-900 leading-relaxed">{data.ajusteDeProcesso}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Multiplas evidencias ou fallback para unica string legado */}
+            {(data.evidenciasReais && data.evidenciasReais.length > 0) ? (
+                <div className="border-l-2 border-slate-300 pl-4 py-1 space-y-2">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                        Evidencias Reais ({data.evidenciasReais.length})
+                    </p>
+                    {data.evidenciasReais.map((evidencia, idx) => (
+                        <p key={idx} className="text-sm text-slate-600 italic leading-relaxed">
+                            {evidencia}
+                        </p>
+                    ))}
+                </div>
+            ) : data.evidenciaReal ? (
+                <div className="border-l-2 border-slate-300 pl-4 py-1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Evidencia Real</p>
+                    <p className="text-sm text-slate-600 italic leading-relaxed">{data.evidenciaReal}</p>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+function CardMarketing({ data }: { data: InsightMarketing }) {
+    const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+    const handleCopy = (text: string, key: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2000);
+    };
+
+    const CopyButton = ({ text, id }: { text: string, id: string }) => {
+        const isCopied = copiedKey === id;
+        return (
+            <button
+                onClick={() => handleCopy(text, id)}
+                className="absolute top-3 right-3 p-1.5 rounded-md transition-colors bg-white/50 hover:bg-white text-slate-500 hover:text-slate-800"
+                title="Copiar texto"
+            >
+                {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            </button>
+        );
+    };
+
+    return (
+        <div className="space-y-5">
+
+            {/* Tom de Voz */}
+            {data.tomDeVoz && (
+                <div className="bg-slate-100 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tom de Voz Sugerido</p>
+                    <p className="text-sm text-slate-700 leading-relaxed">{data.tomDeVoz}</p>
+                </div>
+            )}
+
+            {/* Ganchos A/B/C */}
+            <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Headlines para Teste</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 relative group">
+                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1 pr-6">Gancho A</p>
+                        <p className="text-sm font-semibold text-amber-900 leading-relaxed">{data.gancho1}</p>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CopyButton text={data.gancho1} id="gancho1" />
+                        </div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 relative group">
+                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1 pr-6">Gancho B</p>
+                        <p className="text-sm font-semibold text-amber-900 leading-relaxed">{data.gancho2}</p>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CopyButton text={data.gancho2} id="gancho2" />
+                        </div>
+                    </div>
+                    {data.gancho3 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 relative group">
+                            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1 pr-6">Gancho C</p>
+                            <p className="text-sm font-semibold text-amber-900 leading-relaxed">{data.gancho3}</p>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CopyButton text={data.gancho3} id="gancho3" />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Copies por Canal */}
+            <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Copies por Canal</p>
+                <div className="space-y-3">
+                    {data.copyFeed && (
+                        <div className="bg-white border border-slate-200 rounded-lg p-4 relative group">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 pr-6">Feed / Carrossel</p>
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.copyFeed}</p>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CopyButton text={data.copyFeed} id="copyFeed" />
+                            </div>
+                        </div>
+                    )}
+                    {data.copyStories && (
+                        <div className="bg-white border border-slate-200 rounded-lg p-4 relative group">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 pr-6">Stories / Reels</p>
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.copyStories}</p>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CopyButton text={data.copyStories} id="copyStories" />
+                            </div>
+                        </div>
+                    )}
+                    {data.copyWhatsapp && (
+                        <div className="bg-white border border-slate-200 rounded-lg p-4 relative group">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 pr-6">WhatsApp (primeiro contato)</p>
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.copyWhatsapp}</p>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CopyButton text={data.copyWhatsapp} id="copyWhatsapp" />
+                            </div>
+                        </div>
+                    )}
+                    <div className="bg-white border border-slate-200 rounded-lg p-4 relative group">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 pr-6">Copy Principal (Geral)</p>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{data.copyPrincipal}</p>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CopyButton text={data.copyPrincipal} id="copyPrincipal" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Estrategia */}
+            <div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Estrategia e Audiencia</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Angulo de Posicionamento</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{data.anguloDePositionamento}</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Segmento Sugerido</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{data.segmentoSugerido}</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Antecipacao de Objecao</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{data.antecipacaoDeObjecao}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Palavras-chave negativas */}
+            {data.palavrasChaveNegativas && (
+                <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">Negativar no Google / Meta Ads</p>
+                    <p className="text-sm text-red-800 leading-relaxed">{data.palavrasChaveNegativas}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function InsightBlock({ insight, subAba }: { insight: WeeklyInsight; subAba: SubAba }) {
+    const hasNegocio = !!insight.negocio;
+    const hasMarketing = !!insight.marketing;
+
+    const renderLegado = () => (
+        <div className="space-y-3">
+            {insight.principalInsight && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Principal Insight</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{insight.principalInsight}</p>
+                </div>
+            )}
+            {insight.padroesIdentificados && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Padroes Identificados</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{insight.padroesIdentificados}</p>
+                </div>
+            )}
+            {insight.recomendacoesEstrategicas && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Recomendacoes Estrategicas</p>
+                    <p className="text-sm text-slate-800 leading-relaxed">{insight.recomendacoesEstrategicas}</p>
+                </div>
+            )}
         </div>
     );
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between">
-                <p className="text-xs text-gray-400">
-                    {isLoadingInsights
-                        ? 'Gerando insights com IA para os ultimos 7 dias de dados reais...'
-                        : weeklyInsightsPeriodo
-                            ? <>Insights de: <span className="font-medium text-gray-600">{weeklyInsightsPeriodo}</span> &bull; Atualiza automaticamente toda segunda-feira</>
-                            : 'Aguardando geracao dos insights semanais'}
-                </p>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Periodo: <span className="text-gray-700 normal-case font-medium">{insight.periodoStr}</span>
+                </span>
+                <span className="text-xs text-gray-400">
+                    {new Date(insight.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+            </div>
+            <div className="p-5">
+                {!hasNegocio && !hasMarketing ? (
+                    renderLegado()
+                ) : subAba === 'negocio' ? (
+                    hasNegocio ? (
+                        <CardNegocio data={insight.negocio!} />
+                    ) : (
+                        <p className="text-sm text-gray-400 italic">Analise de negocio nao disponivel para este periodo.</p>
+                    )
+                ) : (
+                    hasMarketing ? (
+                        <CardMarketing data={insight.marketing!} />
+                    ) : (
+                        <p className="text-sm text-gray-400 italic">Analise de marketing nao disponivel para este periodo.</p>
+                    )
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Agrupa um array de WeeklyInsight por mes/ano da data do timestamp
+function groupByMonth(insights: WeeklyInsight[]): { mesLabel: string; items: WeeklyInsight[] }[] {
+    const map: Record<string, WeeklyInsight[]> = {};
+    const order: string[] = [];
+
+    insights.forEach(insight => {
+        const d = new Date(insight.timestamp);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        if (!map[key]) {
+            map[key] = [];
+            order.push(key);
+        }
+        map[key].push(insight);
+        // Garante que a label fica associada
+        (map[key] as any)._label = label;
+    });
+
+    return order.map(key => ({
+        mesLabel: ((map[key] as any)._label as string),
+        items: map[key]
+    }));
+}
+
+function MonthGroupedFeed({ insights, subAba }: { insights: WeeklyInsight[]; subAba: SubAba }) {
+    // So agrupa se houver insights de mais de um mes diferente
+    const groups = groupByMonth(insights);
+    const multiMes = groups.length > 1;
+
+    return (
+        <div className="space-y-6">
+            {groups.map(group => (
+                <div key={group.mesLabel}>
+                    {multiMes && (
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest capitalize">
+                                {group.mesLabel}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200" />
+                            <span className="text-xs text-gray-400">{group.items.length} {group.items.length === 1 ? 'relatorio' : 'relatorios'}</span>
+                        </div>
+                    )}
+                    <div className="space-y-4">
+                        {group.items.map((insight, idx) => (
+                            <InsightBlock key={insight.timestamp ?? idx} insight={insight} subAba={subAba} />
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+export function InsightsTab() {
+    const { weeklyInsights, isLoadingInsights } = useDashboard();
+    const [subAba, setSubAba] = useState<SubAba>('negocio');
+
+    const hasInsights = weeklyInsights.length > 0;
+
+    const LoadingBlock = () => (
+        <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm space-y-3 animate-pulse">
+            <div className="h-3 bg-gray-200 rounded w-1/3" />
+            <div className="h-3 bg-gray-100 rounded w-full" />
+            <div className="h-3 bg-gray-100 rounded w-5/6" />
+            <div className="h-3 bg-gray-100 rounded w-2/3" />
+        </div>
+    );
+
+    return (
+        <div className="space-y-4">
+            {/* Cabecalho com subnavegacao */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+                <button
+                    onClick={() => setSubAba('negocio')}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        subAba === 'negocio'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Negocio
+                </button>
+                <button
+                    onClick={() => setSubAba('marketing')}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                        subAba === 'marketing'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    Marketing
+                </button>
             </div>
 
+            {/* Descricao da subaba ativa */}
+            <p className="text-xs text-gray-400">
+                {subAba === 'negocio'
+                    ? 'Analise operacional da semana: gargalos no funil, perfil do lead, objecoes e recomendacoes taticas para a equipe de vendas.'
+                    : 'Inteligencia de conteudo: ganchos, copies e direcionamentos prontos para campanhas e criativos.'
+                }
+            </p>
+
+            {/* Conteudo */}
             {isLoadingInsights ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <LoadingCard color="blue" />
-                    <LoadingCard color="green" />
-                    <LoadingCard color="orange" />
+                <div className="space-y-3">
+                    <LoadingBlock />
+                    <LoadingBlock />
                 </div>
             ) : !hasInsights ? (
                 <div className="text-center py-10 bg-white rounded-lg border border-dashed border-gray-300">
-                    <p className="text-sm text-gray-500 mb-4">
-                        A IA não obteve um insight válido para o período analisado. Pode ser devido à falta de dados ou limite da API.
+                    <p className="text-sm text-gray-500">
+                        Nenhum relatorio disponivel para o periodo selecionado.
                     </p>
-                    <button
-                        onClick={() => reloadInsights()}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                        <RefreshCcw className="w-4 h-4" />
-                        Gerar Novo Insight Agora
-                    </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-                        <div className="flex flex-col items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100">
-                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                            </div>
-                            <h3 className="font-semibold text-base text-blue-600">Principal Insight</h3>
-                            <p className="text-sm text-gray-700 leading-relaxed">{weeklyInsights.principalInsight}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-                        <div className="flex flex-col items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center border border-green-100">
-                                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                </svg>
-                            </div>
-                            <h3 className="font-semibold text-base text-green-700">Padroes Identificados</h3>
-                            <p className="text-sm text-gray-700 leading-relaxed">{weeklyInsights.padroesIdentificados}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-                        <div className="flex flex-col items-start gap-3">
-                            <div className="flex-shrink-0 w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center border border-orange-100">
-                                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                            </div>
-                            <h3 className="font-semibold text-base text-orange-700">Recomendacoes Estrategicas</h3>
-                            <p className="text-sm text-gray-700 leading-relaxed">{weeklyInsights.recomendacoesEstrategicas}</p>
-                        </div>
-                    </div>
-                </div>
+                <MonthGroupedFeed insights={weeklyInsights} subAba={subAba} />
             )}
         </div>
     );

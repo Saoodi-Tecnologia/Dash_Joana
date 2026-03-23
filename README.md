@@ -8,87 +8,109 @@ Esta documentação provê uma visão unificada e detalhada de toda a arquitetur
 
 ---
 
+## 📍 Sumário
+- [1. Setup e Variáveis de Ambiente](#-1-setup-e-variáveis-de-ambiente-environments--setup)
+- [2. Scripts do Projeto](#-2-scripts-do-projeto)
+- [3. Arquitetura Front-end](#-3-arquitetura-front-end-frontend-architecture)
+- [4. Integração com Banco de Dados e Inteligência](#-4-integração-com-banco-de-dados-e-inteligência-supabase-services--analytics-engine)
+- [5. O Motor de IA Embutido (Gemini)](#-5-o-motor-de-ia-embutido-gemini-ai-integration)
+- [6. Manutenção e Edge Functions](#-6-manutenção-e-edge-functions)
+- [7. Design System e Estilização](#-7-design-system-e-estilização-aesthetics)
+
+---
+
 ## 🚀 1. Setup e Variáveis de Ambiente (Environments & Setup)
 
-O projeto é construído utilizando o ecossistema moderno: **React 18, TypeScript, Vite, Tailwind CSS e Shadcn UI**.
+O projeto utiliza **React 18, TypeScript, Vite, Tailwind CSS e Shadcn UI**.
 
-### Rodando o projeto localmente:
-
-1. Clone o repositório e navegue até a pasta do projeto.
-2. Instale as dependências com `npm install`.
-3. Certifique-se de configurar o arquivo `.env` na raiz do projeto com as chaves:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-   - `VITE_GEMINI_API_KEY`
-4. Inicie o servidor de desenvolvimento com `npm run dev`.
+### Configuração:
+1. Instale as dependências: `npm install`
+2. Configure o arquivo `.env` na raiz:
+   - `VITE_SUPABASE_URL`: URL do projeto Supabase.
+   - `VITE_SUPABASE_ANON_KEY`: Chave anônima para acesso ao client.
+   - `VITE_GEMINI_API_KEY`: Chave da API do Google AI (Gemini).
 
 ---
 
-## 🏛️ 2. Arquitetura Front-end (Frontend Architecture)
+## 🛠️ 2. Scripts do Projeto
 
-A estrutura do projeto prioriza separação de responsabilidades e escopo cirúrgico.
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Inicia o servidor local em `http://localhost:8080/`. |
+| `npm run build` | Gera o bundle de produção na pasta `/dist`. |
+| `npm run build:dev` | Gera build em modo desenvolvimento para debug rápido. |
+| `npm run lint` | Executa o ESLint para validação de código. |
+| `npm run preview` | Visualiza localmente o build gerado. |
+
+---
+
+## 🏛️ 3. Arquitetura Front-end (Frontend Architecture)
 
 ### Roteamento Seguro (Routing)
-A aplicação possui rotas delimitadas e controladas através do `react-router-dom`:
-- **`/login`**: A view responsável por proteger e injetar autorização no sistema. A senha é imutável em plain text, a lógica processa através do algoritmo de Hash nativo do navegador (SHA-256 no Frontend, arquivo `Login.tsx`).
-- **`/`**: View mestre do painel, renderizada apenas quando `localStorage` provém o token correspondente à validação positiva do MD5/Hash do login.
+- **`/login`**: View de autenticação. A senha é processada via Hash nativo (SHA-256 no Frontend, arquivo `Login.tsx`).
+- **`/`**: Dashboard mestre, acessível via token em `localStorage`.
 
-### Gerenciamento de Estado Global (State Management)
-Usamos API Contextual via `DashboardContext.tsx` e injetamos o state via `useDashboard.ts` (Custom Hook). Isso evita o *prop-drilling* desnecessário em dezenas de componentes. O Context armazena:
-- Data objects das queries
-- Flags de tráfego (`isProcessing`, `isLoading`)
-- A engine de intervalo atual (`selectedPeriod`)
-- O handler universal de reload (`reload(true)`)
+### Gerenciamento de Estado
+Via `DashboardContext.tsx` e custom hook `useDashboard.ts`. Centraliza:
+- Objetos de dados e métricas.
+- Flags de tráfego (`isProcessing`, `isLoading`).
+- Motor de intervalo (`selectedPeriod`) e reload global (`reload(true)`).
 
-### Estrutura de Abas (Tab Navigation)
-Subdividimos visões analíticas no `Index.tsx`, despachando dados para as respectivas `tabs`, mantendo as responsabilidades isoladas:
-- `GeralTab`: KPIs essenciais e Funil de conversão (Bar charts, Area charts).
-- `InsightsTab`: Constatações analíticas qualitativas textuais.
-- `PerformanceTab`: Comparativo de conversão por etapa de abandono.
-- `EngajamentoTab`: Métricas temporais, identificando picos e horários produtivos.
-- `ProdutosTab`: Demografia do cliente (Faixa Etária), tipo de plano (Familiar/Empresarial) e quantidade de vínculos (Dependentes).
-- `QualidadeTab`: KPIs que julgam assertividade do Bot versus chamados confusos.
+### Estrutura de Abas (Tabs)
+As visões são isoladas em `Index.tsx`:
+- `GeralTab`: KPIs essenciais e Funil.
+- `InsightsTab`: Análises qualitativas textuais geradas via IA.
+- `PerformanceTab`: Taxas de conversão e abandono.
+- `EngajamentoTab`: Mapas de calor e horários de pico.
+- `ProdutosTab`: Demografia, tipos de plano e dependentes.
+- `QualidadeTab`: KPIs de assertividade do Agente.
 
 ---
 
-## 🗄️ 3. Integração com Banco de Dados e Inteligência (Supabase Services & Analytics Engine)
-
-Toda a aquisição de telemetria cruza com banco de dados remoto da Cloud via **Supabase**. O principal orquestrador visual está no arquivo `client.ts` dentro de `src/integrations/supabase`.
+## 🗄️ 4. Integração com Banco de Dados e Inteligência (Supabase Services & Analytics Engine)
 
 ### A Engenharia de Análise Transacional (Analytics Engine & Edge Functions)
-Anteriormente utilizava mocks estáticos. Hoje a métrica é produzida baseada nos contatos *real-time*.
+A métrica do dashboard é produzida dinamicamente baseada nos contatos *real-time* processados em memória.
 
 **O Arquivo Mestre:** `src/services/analyticsEngine.ts`
-Desempenha a função de Proxy Backend. O Engine captura as solicitações oriundas do Hook da interface do usuário (`forceRefetch`, `startDate`, `endDate`), mapeia as strings `ISO` e delega a responsabilidade massiva da computação dos dados para a Edge Function via RCP HTTPs POST.
+Desempenha a função de Proxy Backend. O Engine captura as solicitações da interface, mapeia as datas e utiliza a **Edge Function** para realizar a computação massiva dos dados.
 
-**A Edge Function (`get-dashboard-metrics`) e o *Data Warehouse* Diário:**
-A função serverless (Deno/Edge) alocada no Supabase é o coração analítico do sistema. Para lidar com **Big Data** (escala massiva de mensagens) sem perda de velocidade, implementamos uma arquitetura sólida de *Data Warehouse*:
-1. **Consolidação de Sessões (`dash_sessoes_consolidadas`)**: Uma rotina automática (`consolidateSessions`) varre o fluxo bruto de mensagens do dia anterior (`dash_mensagens_realtime`) e as comprime em métricas prontas (uma linha por sessão). Dados qualitativos como objeção, abandono e ticket estimado já são agrupados previamente.
-2. **Leitura Híbrida Inteligente**: Quando o dashboard solicita o período atual, a Engine reconstrói perfeitamente o cenário mesclando o pacote leve da tabela consolidada com as poucas mensagens novas "em tempo real" do dia em curso. 
-3. **Agregação e Fidelidade**: Transforma essa leitura veloz nos objetos `DashboardMetrics` necessários para a UI Front-end.
+**A Edge Function e o Sistema de Cache:**
+A função serverless (Deno/Edge) alocada no Supabase é o coração analítico. Para manter a performance sem processar milhares de mensagens a cada reload, implementamos um sistema de persistência de estado:
+1. **Cache de Métricas (`dash_metrics_cache`)**: Os resultados processados (KPIs, listas e gráficos) são armazenados em um objeto JSON cacheado. Isso garante carregamento instantâneo para acessos recorrentes.
+2. **Leitura Sob Demanda (`dash_mensagens_realtime`)**: Quando o cache expira ou um novo período é solicitado, a Engine lê o fluxo bruto de mensagens diretamente da tabela de mensagens em tempo real no schema `dashboard`. 
+3. **Agregação em Tempo Real**: Os milhares de registros são agrupados por sessão de atendimento, identificando automaticamente as etapas do funil, tickets e intenções do cliente.
 
-**Benefício da Arquitetura:** O sistema carrega milhares de conversões em frações de segundo sem Timeouts. Libera o banco Supabase de escaneamentos completos exaustivos (Full Table Scans) diários e garante suporte robusto ao crescimento acelerado da operação comercial.
-
----
-
-## 🧠 4. O Motor de IA Embutido (Gemini AI Integration)
-
-O **Assistente Flutuante (Floating Chat)** não apenas interage de forma chata, mas age de fato interpretando como um **Especialista/CTO** da empresa Saoodi, sendo parametrizado por nós utilizando os dados transientes processados.
-
-### Arquitetura (`src/services/geminiService.ts`):
-Componente injetável em Cloud. Em vez de uma busca vetorial complexa, o Dashboard usa a estratégia de RAG Dinâmico Front-end (Injected Context):
-1. **Model:** `gemini-2.5-flash-lite`.
-2. O Chat pega toda a interface crua (`kpis`, `funnelStages`, `horariosDePico`) proveniente da Edge Function e converte isso numa formatação String (JSON.stringify de `dashboardContext`), alocando esse conhecimento efêmero no prompt base ("system prompt").
-3. A Joana absorve todos os parâmetros reais daquele gráfico no momento. Quando perguntada "E qual conversão?", a Joana não apenas acha no arquivo, ela reflete, pondera o contexto analítico setado nos promts (sendo a Saoodi, sendo um Analista Sênior) e entrega análises concisas em texto pro usuário baseado no instante presente do sistema.
+**Benefício da Arquitetura:** Elimina a necessidade de tabelas intermediárias de consolidação, garantindo que o dashboard reflita exatamente a realidade do banco de dados a cada atualização forçada.
 
 ---
 
-## 🎨 5. Design System e Estilização (Aesthetics)
+## 🧠 5. O Motor de IA Embutido (Gemini AI Integration)
 
-Aplicamos um design limpo, focado em alta legibilidade e sofisticação:
+Utilizamos a estratégia de **RAG Dinâmico (Context Injection)**:
 
-1. **Tokens de CSS Moderno (Tailwind):** Todas as paletas (base, primária, secundária, erros) são gerenciadas em formato de Variáveis de Cor Absoluta HSL em `src/index.css` e chamadas universalmente nas strings Tailwind (`bg-primary`, `text-primary-foreground`).
-2. **Tipografia Premium:**
-   - O corpo padrão de textos para legibilidade profunda utiliza `Poppins`.
-   - Elementos em destaque logístico e tipográfico, especialmente os Headers de acesso `/login`, foram engatados na exclusiva e moderna `PublicaPlay` via tag do Tailwind `font-publica`.
+- **Modelo:** `gemini-2.5-flash-lite`.
+- **Estratégia:** O dashboard injeta o estado atual (KPIs, Funis) no prompt base da Joana.
+- **Quota Handling:** O serviço possui tratamento nativo para erros 429 (limite excedido), informando o tempo de espera necessário para o usuário.
+
+---
+
+## ⚡ 6. Manutenção e Edge Functions
+
+### Deploy de Funções:
+O projeto inclui um utilitário exclusivo para facilitar a compilação local de dependências complexas na Edge:
+- **`build_edge.cjs`**: Script que auxilia no empacotamento da Edge Function antes do deploy, garantindo compatibilidade com o runtime do Supabase.
+
+### Estrutura Supabase:
+- `/supabase/functions/get-dashboard-metrics/`: Contém a lógica de agregação SQL e IA.
+- `/supabase/migrations/`: Histórico de evolução do esquema do banco.
+
+---
+
+## 🎨 7. Design System e Estilização (Aesthetics)
+
+1. **Tokens HSL:** Paletas gerenciadas em `src/index.css`.
+2. **Tipografia:** 
+   - `Poppins` para legibilidade.
+   - `PublicaPlay` (`font-publica`) para headers e marca.
 3. **Identidade Visual:** Trabalhamos paletas de Teal (`#38B3AB`) como matiz core da marca Saoodi, com alertas discretos variando entre o Indigo/Gray moderno, proporcionando maturidade na visualização do dashboard.
