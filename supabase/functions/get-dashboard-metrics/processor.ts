@@ -192,10 +192,15 @@ export async function processMessages(
             stage = 'Interesse';
         }
 
-        const intenClienteFechar = /(fechado|vou querer|quero contratar|vamos fechar|pode seguir|pode fazer|pagar agora)/.test(humanText);
-        const repostaAfirmativaAposSugestaoIA = /(seguir com a contratação|continuar com a contratação|deseja contratar|se quiser contratar|vamos iniciar a contratação|posso gerar o link)/.test(aiText) && /\b(sim|isso mesmo|pode ser|quero|exato|bora|vamos|pode sim|com certeza|ok|manda)\b/.test(humanText);
+        // Fechamento: detectado por sinais da Joana, nao por palavras do cliente
+        // Sinal 1: Joana solicitou o CPF — entrada confirmada no fluxo de contratacao
+        const joanaFechouPedindoCpf = /(?:pode\s+me\s+(?:passar|informar|enviar)|me\s+(?:passa|informa|envia)|qual\s+(?:e|é)\s+(?:o\s+)?(?:seu\s+)?)\s*cpf/i.test(aiText) ||
+            (/cpf/i.test(aiText) && /(?:contratacao|contratação|avanca|avançar|seguir|prosseguir|fechar)/i.test(aiText));
 
-        if (intenClienteFechar || repostaAfirmativaAposSugestaoIA) stage = 'Fechamento';
+        // Sinal 2: Joana gerou resumo =Cliente com dados coletados (CPF, email, plano escolhido)
+        const joanaGeroupResumoCliente = /=cliente[^=]+(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
+
+        if (joanaFechouPedindoCpf || joanaGeroupResumoCliente) stage = 'Fechamento';
 
         if (stage === 'Cotação') counts.cotacao++;
         if (stage === 'Interesse') counts.interesse++;
@@ -228,6 +233,10 @@ export async function processMessages(
         let vidasDetectadas = 0;
         let numDependentesExato: number | null = null;
 
+        // Normaliza texto removendo acentos para facilitar comparacao de ordinais
+        const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const aiNorm = normalize(aiTextRaw);
+
         // Prioridade 1: resumo estruturado "=Cliente Nome, X anos, N dependentes"
         const resumoClienteMatch = aiTextRaw.match(/=Cliente[^,\n]+,\s*\d+\s*anos?,\s*(\d+)\s*dependentes?/i);
         const resumoSemDep = /=Cliente[^,\n]+,\s*\d+\s*anos?,\s*sem\s*dependentes?/i.test(aiTextRaw);
@@ -238,45 +247,57 @@ export async function processMessages(
             numDependentesExato = 0;
             vidasDetectadas = 1;
         } else {
-            // Prioridade 2: "X vidas" na mensagem da IA
+            // Prioridade 2: numero digito explicito de vidas ("3 vidas", "2 vidas")
             const vidasMatch = aiTextRaw.match(/\b(\d+)\s*vidas?\b/i);
             if (vidasMatch) {
                 vidasDetectadas = parseInt(vidasMatch[1]);
-            } else {
-                // Prioridade 3: "X pessoas" explicito
+            }
+
+            // Prioridade 3: numero digito explicito de pessoas ("3 pessoas", "2 pessoas")
+            if (vidasDetectadas === 0) {
                 const pessoasMatch = aiTextRaw.match(/\b(\d+)\s*pessoas?\b/i);
-                if (pessoasMatch) {
-                    vidasDetectadas = parseInt(pessoasMatch[1]);
-                } else {
-                    // Prioridade 4: bullets com R$ (cada bullet = 1 pessoa)
-                    const bulletMatches = aiTextRaw.match(/[•*-]\s*(?:[^:\n]+:)?\s*R\$/gi);
-                    if (bulletMatches && bulletMatches.length >= 2) {
-                        vidasDetectadas = bulletMatches.length;
-                    } else {
-                        // Prioridade 5: idades entre parenteses "(XX anos)" — conta pessoas distintas
-                        const idadesParenteses = [...aiTextRaw.matchAll(/\((\d{1,3})\s*anos?\)/gi)];
-                        const uniqueIdadesP = new Set(idadesParenteses.map((m: any) => m[1]));
-                        if (uniqueIdadesP.size >= 2) {
-                            vidasDetectadas = uniqueIdadesP.size;
-                        } else {
-                            // Prioridade 6: ordinais e expressoes coletivas
-                            const ordinaisMap: Record<string, number> = {
-                                'voc\u00eas dois': 2, 'voces dois': 2, 'pra voc\u00eas dois': 2, 'para voc\u00eas dois': 2,
-                                'para os dois': 2, 'pra os dois': 2, 'para as duas': 2, 'pra as duas': 2,
-                                'dois': 2, 'duas': 2, 'tr\u00eas': 3, 'tres': 3, 'quatro': 4,
-                                'cinco': 5, 'seis': 6,
-                                'para os tr\u00eas': 3, 'pra os tr\u00eas': 3,
-                                'para os 2': 2, 'para os 3': 3, 'para os 4': 4
-                            };
-                            for (const [palavra, qtd] of Object.entries(ordinaisMap)) {
-                                if (new RegExp('\\b' + palavra + '\\b', 'i').test(aiTextRaw)) {
-                                    vidasDetectadas = qtd;
-                                    break;
-                                }
-                            }
-                        }
+                if (pessoasMatch) vidasDetectadas = parseInt(pessoasMatch[1]);
+            }
+
+            // Prioridade 4: ordinais por extenso no texto normalizado (tres, quatro, cinco...)
+            // Funciona com ou sem acento e em qualquer posicao da frase
+            if (vidasDetectadas === 0) {
+                const ordinaisNorm: [string, number][] = [
+                    ['seis', 6], ['cinco', 5], ['quatro', 4], ['tres', 3], ['dois', 2], ['duas', 2]
+                ];
+                for (const [palavra, qtd] of ordinaisNorm) {
+                    if (aiNorm.includes(palavra)) {
+                        vidasDetectadas = qtd;
+                        break;
                     }
                 }
+            }
+
+            // Prioridade 5: contar valores individuais inline ("R$ X pra voce, R$ Y pra sua esposa")
+            if (vidasDetectadas === 0) {
+                let maxVidasMsg = 0;
+                for (const msg of session.aiMessages) {
+                    // Padrao: "R$ valor pra [pronome/nome/relacao]"
+                    const valoresPorPessoa = [...msg.matchAll(/R\$\s*[0-9][0-9.,]+\s*(?:pra|para|de|por)\s+(?:voc[eê]|sua?|seu|a\s+\w+|o\s+\w+|\w+\s+de)/gi)];
+                    if (valoresPorPessoa.length > maxVidasMsg) maxVidasMsg = valoresPorPessoa.length;
+
+                    // Bullets numa mesma mensagem
+                    const bullets = [...msg.matchAll(/[•\-\*]\s*[^:\n]+:\s*R\$/gi)];
+                    if (bullets.length > maxVidasMsg) maxVidasMsg = bullets.length;
+                }
+
+                // Joana as vezes manda cada bullet como mensagem separada — checar no texto concatenado
+                const bulletsTotal = [...aiTextRaw.matchAll(/[•\-\*]\s*[^•\n]+:\s*R\$/gi)];
+                if (bulletsTotal.length > maxVidasMsg) maxVidasMsg = bulletsTotal.length;
+
+                if (maxVidasMsg >= 2) vidasDetectadas = maxVidasMsg;
+            }
+
+            // Prioridade 6: idades entre parenteses "(XX anos)" — conta pessoas distintas na cotacao
+            if (vidasDetectadas === 0) {
+                const idadesParenteses = [...aiTextRaw.matchAll(/\((\d{1,3})\s*anos?\)/gi)];
+                const uniqueIdadesP = new Set(idadesParenteses.map((m: any) => m[1]));
+                if (uniqueIdadesP.size >= 2) vidasDetectadas = uniqueIdadesP.size;
             }
         }
         if (vidasDetectadas < 1) vidasDetectadas = 1;
@@ -374,15 +395,15 @@ export async function processMessages(
             .replace(/(?:filhos?|dependentes?)\s+(?:at[ée]|com)?\s*\d{1,3}\s*anos?[^.!?]*/gi, '')
             .replace(/faixa\s+et[aá]ria\s+\d{1,3}\s+a\s+\d{1,3}\s+anos?[^.!?]*/gi, '')
             .replace(/\d{1,3}\s*(?:a|at[ée])\s*\d{1,3}\s+anos?/gi, '');
-        const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*(?:anos?|m[eê]s(?:es)?)/gi;
+        // Captura apenas idades em anos — excluir meses para nao confundir prazos de carencia com faixas etarias
+        const ageRegex = /(?:para\s+|de\s+|com\s+)?(\d{1,3})\s*anos?/gi;
         let match;
         const sessionAges = new Set<string>();
         const sessionUniqueAgesRebuilt = new Set<number>();
 
         while ((match = ageRegex.exec(aiTextSemPolitica)) !== null) {
-            const raw = parseInt(match[1]);
-            const isMes = /m[eê]s/i.test(match[0]);
-            const age = isMes ? 0 : raw;
+            const age = parseInt(match[1]);
+            // Ignorar valores improvaveis para idade humana (ex: prazos como 12, 24 meses de carencia)
             if (age < 0 || age > 105) continue;
             sessionUniqueAgesRebuilt.add(age);
         }
@@ -398,19 +419,21 @@ export async function processMessages(
         });
         sessionAges.forEach(f => { faixas[f] = (faixas[f] || 0) + 1; });
 
-        // Dependentes: usa numDependentesExato (resumo =Cliente) se disponível,
-        // senão calcula vidas - 1 (o titular sempre é 1)
-        const numDep = numDependentesExato !== null ? numDependentesExato : Math.max(0, vidasDetectadas - 1);
-        let dCount: string;
-        if (numDep <= 0) dCount = "0";
-        else if (numDep === 1) dCount = "1";
-        else if (numDep === 2) dCount = "2";
-        else if (numDep === 3) dCount = "3";
-        else if (numDep === 4) dCount = "4";
-        else dCount = "5+";
+        // Dependentes: so contabiliza sessoes onde a Joana fez cotacao real (citou R$)
+        // Evita inflar o bucket "0" com conversas sem preco (leads em fase inicial)
+        if (iaCitouValor) {
+            const numDep = numDependentesExato !== null ? numDependentesExato : Math.max(0, vidasDetectadas - 1);
+            let dCount: string;
+            if (numDep <= 0) dCount = "0";
+            else if (numDep === 1) dCount = "1";
+            else if (numDep === 2) dCount = "2";
+            else if (numDep === 3) dCount = "3";
+            else if (numDep === 4) dCount = "4";
+            else dCount = "5+";
 
-        if (isSegundaParte) dependentes[dCount].mesAtual++;
-        else dependentes[dCount].mesPassado++;
+            if (isSegundaParte) dependentes[dCount].mesAtual++;
+            else dependentes[dCount].mesPassado++;
+        }
 
         const start = session.timestamps[0];
         const end = session.timestamps[session.timestamps.length - 1];
