@@ -193,14 +193,20 @@ export async function processMessages(
         }
 
         // Fechamento: detectado por sinais da Joana, nao por palavras do cliente
-        // Sinal 1: Joana solicitou o CPF — entrada confirmada no fluxo de contratacao
-        const joanaFechouPedindoCpf = /(?:pode\s+me\s+(?:passar|informar|enviar)|me\s+(?:passa|informa|envia)|qual\s+(?:e|é)\s+(?:o\s+)?(?:seu\s+)?)\s*cpf/i.test(aiText) ||
-            (/cpf/i.test(aiText) && /(?:contratacao|contratação|avanca|avançar|seguir|prosseguir|fechar)/i.test(aiText));
+
+        // Sinal 1: Joana SOLICITA o CPF ativamente (diferente de informar que CPF e necessario)
+        // Padroes: "pode me passar seu CPF", "preciso do seu CPF", "me informa seu CPF", "me passa seu CPF"
+        const joanaFechouPedindoCpf =
+            /pode\s+me\s+(?:passar|informar|enviar|mandar)[^.!?\n]{0,30}cpf/i.test(aiText) ||
+            /(?:me\s+(?:passa|informa|envia|manda|informe)|preciso\s+do\s+(?:seu\s+)?|s[oó]\s+falta\s+(?:voc[eê]\s+me\s+)?(?:informar\s+)?(?:o\s+)?(?:seu\s+)?)\s*cpf/i.test(aiText) ||
+            /(?:agora\s+)?preciso\s+do\s+(?:seu\s+)?cpf\s+(?:pra|para)/i.test(aiText) ||
+            /cpf\s+(?:ou\s+cnpj\s+)?do\s+(?:respons[aá]vel|titular)\s+(?:pela|para)\s+(?:a\s+)?contrata/i.test(aiText);
 
         // Sinal 2: Joana gerou resumo =Cliente com dados coletados (CPF, email, plano escolhido)
         const joanaGeroupResumoCliente = /=cliente[^=]+(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
 
         if (joanaFechouPedindoCpf || joanaGeroupResumoCliente) stage = 'Fechamento';
+
 
         if (stage === 'Cotação') counts.cotacao++;
         if (stage === 'Interesse') counts.interesse++;
