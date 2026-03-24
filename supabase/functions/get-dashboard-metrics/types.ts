@@ -104,6 +104,7 @@ export interface EngajamentoData {
     kpis: EngajamentoKpis;
     horarioPico: { horario: string, mensagens: number }[];
     volumeHorario: { horario: string, mensagens: number, fill: string }[];
+    duracaoHistograma: { categoria: string, quantidade: number, fill: string }[];
 }
 
 export interface QualidadeKpis {

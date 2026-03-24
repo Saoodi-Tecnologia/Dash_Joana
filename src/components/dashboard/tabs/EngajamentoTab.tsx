@@ -1,5 +1,5 @@
 import React from 'react';
-import { AreaChart, Area, BarChart, Bar, XAxis, CartesianGrid, Rectangle, RadialBarChart, RadialBar, PolarRadiusAxis, Label } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Rectangle, RadialBarChart, RadialBar, PolarRadiusAxis, Label, LabelList } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -11,14 +11,10 @@ const horarioPicoConfig = {
     },
 } satisfies ChartConfig;
 
-const roscaConfig = {
-    ia: {
-        label: "Joana",
-        color: "#f97316",
-    },
-    humano: {
-        label: "Leads",
-        color: "#10b981",
+const duracaoConfig = {
+    quantidade: {
+        label: "Sessões",
+        color: "#155DFC",
     },
 } satisfies ChartConfig;
 
@@ -46,28 +42,6 @@ export function EngajamentoTab() {
     const xAxisPicoProps = muitosPontosPico 
         ? { interval: Math.floor(engajamentoData.horarioPico.length / 6) } 
         : { interval: 0 };
-
-    const muitosPontosVolume = engajamentoData.volumeHorario.length > 12;
-    const xAxisVolumeProps = muitosPontosVolume
-        ? { interval: Math.floor(engajamentoData.volumeHorario.length / 6) }
-        : { interval: 0 };
-
-    // Dados para o grafico Humano vs IA
-    const totalIa = engajamentoData.kpis.mensagensIA || 0;
-    const totalHumano = engajamentoData.kpis.mensagensHumanas || 0;
-    const totalGeral = totalIa + totalHumano;
-
-    const roscaData = totalGeral > 0 ? [{
-        name: "Mensagens",
-        ia: totalIa,
-        humano: totalHumano
-    }] : [{
-        name: "Sem Dados",
-        ia: 50,
-        humano: 50
-    }];
-
-    const percentualJoana = totalGeral > 0 ? ((totalIa / totalGeral) * 100).toFixed(1) : 0;
 
     return (
         <div className="space-y-4">
@@ -160,79 +134,43 @@ export function EngajamentoTab() {
                     </div>
                 </div>
 
-                {/* Grafico Rosca Stacked: Leads x Joana */}
+                {/* Grafico: Histograma de Duração */}
                 <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex flex-col h-full lg:col-span-1">
                     <div className="mb-3">
-                        <h3 className="text-sm font-semibold text-gray-700">Leads x Joana</h3>
-                        <p className="text-xs text-gray-500 mt-1">Quem fala mais nas conversões?</p>
+                        <h3 className="text-sm font-semibold text-gray-700">Duração das Conversas</h3>
+                        <p className="text-xs text-gray-500 mt-1">Tempo total de engajamento do lead</p>
                     </div>
-                    <div className="flex-grow flex flex-col justify-center items-center pb-0">
-                        <ChartContainer
-                            config={roscaConfig}
-                            className="mx-auto aspect-square w-full max-w-[200px]"
+                    <ChartContainer config={duracaoConfig} className="h-[250px] w-full mt-auto">
+                        <BarChart
+                            data={engajamentoData.duracaoHistograma || []}
+                            layout="vertical"
+                            margin={{ left: 0, right: 30, top: 0, bottom: 0 }}
                         >
-                            <RadialBarChart
-                                data={roscaData}
-                                startAngle={0}
-                                endAngle={360}
-                                innerRadius={60}
-                                outerRadius={80}
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={true} vertical={false} />
+                            <XAxis type="number" hide />
+                            <YAxis 
+                                dataKey="categoria" 
+                                type="category" 
+                                tickLine={false} 
+                                axisLine={false} 
+                                style={{ fontSize: "11px", fontWeight: 500 }}
+                                width={85}
+                            />
+                            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                            <Bar
+                                dataKey="quantidade"
+                                fill="var(--color-quantidade)"
+                                radius={[0, 4, 4, 0]}
+                                barSize={25}
                             >
-                                <RadialBar
-                                    dataKey="ia"
-                                    fill="var(--color-ia)"
-                                    stackId="a"
-                                    cornerRadius={5}
+                                <LabelList
+                                    dataKey="quantidade"
+                                    position="right"
+                                    style={{ fill: '#6b7280', fontSize: '11px', fontWeight: 600 }}
                                 />
-                                <RadialBar
-                                    dataKey="humano"
-                                    stackId="a"
-                                    cornerRadius={5}
-                                    fill="var(--color-humano)"
-                                />
-                                <ChartTooltip
-                                    cursor={false}
-                                    content={<ChartTooltipContent hideLabel />}
-                                />
-                                <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                                    <Label
-                                        content={({ viewBox }) => {
-                                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                                                return (
-                                                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
-                                                        <tspan
-                                                            x={viewBox.cx}
-                                                            y={(viewBox.cy || 0) - 16}
-                                                            className="fill-foreground text-2xl font-bold"
-                                                        >
-                                                            {totalGeral.toLocaleString()}
-                                                        </tspan>
-                                                        <tspan
-                                                            x={viewBox.cx}
-                                                            y={(viewBox.cy || 0) + 4}
-                                                            className="fill-muted-foreground text-xs"
-                                                        >
-                                                            Msgs Totais
-                                                        </tspan>
-                                                    </text>
-                                                )
-                                            }
-                                        }}
-                                    />
-                                </PolarRadiusAxis>
-                            </RadialBarChart>
-                        </ChartContainer>
-                    </div>
-                    <div className="mt-auto pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span className="text-xs font-medium text-gray-700">
-                                A IA enviou {percentualJoana}% das msgs nesses atendimentos
-                            </span>
-                        </div>
-                    </div>
+                            </Bar>
+                        </BarChart>
+                    </ChartContainer>
                 </div>
             </div>
         </div>

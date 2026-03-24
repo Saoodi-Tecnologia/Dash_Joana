@@ -31,7 +31,8 @@ export function useDashboard() {
     const engajamentoData = data?.engajamentoData ?? {
         kpis: { mensagensConversa: 0, taxaRetorno: 0, clientesRetorno: 0, sessoesLongasPct: 0, sessoesLongasCount: 0, duracaoMedia: 0, mensagensIA: 0, mensagensHumanas: 0 },
         horarioPico: [],
-        volumeHorario: []
+        volumeHorario: [],
+        duracaoHistograma: []
     };
 
     const qualidadeData = data?.qualidadeData ?? {

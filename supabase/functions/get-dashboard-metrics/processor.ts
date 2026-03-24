@@ -92,6 +92,9 @@ export async function processMessages(
     let totalTicketsFam: number[] = [];
     let duracoes: number[] = [];
     let duracoesFechamento: number[] = [];
+    let duracaoRapida = 0;
+    let duracaoMedia = 0;
+    let duracaoLonga = 0;
     let abandonos = 0;
     let mensagensRetidas = 0;
     let abandonoPorEtapa = { cotacao: 0, interesse: 0, fechamento: 0 };
@@ -477,6 +480,10 @@ export async function processMessages(
         if (diff > 0 && diff < 120) {
             duracoes.push(diff);
             if (stage === 'Fechamento') duracoesFechamento.push(diff);
+
+            if (diff < 2) duracaoRapida++;
+            else if (diff <= 10) duracaoMedia++;
+            else duracaoLonga++;
         }
 
         if (isAbandono) {
@@ -655,7 +662,12 @@ export async function processMessages(
                 mensagensHumanas: totalMensagensHumanas
             },
             horarioPico: horarioPico.length > 0 ? horarioPico : [],
-            volumeHorario: volumeHorario.length > 0 ? volumeHorario : []
+            volumeHorario: volumeHorario.length > 0 ? volumeHorario : [],
+            duracaoHistograma: [
+                { categoria: 'Quentes (<2m)', quantidade: duracaoRapida, fill: '#93c5fd' }, // blue-300
+                { categoria: 'Médias (2-10m)', quantidade: duracaoMedia, fill: '#3b82f6' }, // blue-500
+                { categoria: 'Longas (>10m)', quantidade: duracaoLonga, fill: '#1e3a8a' }, // blue-900
+            ]
         },
         qualidadeData: {
             kpis: {
