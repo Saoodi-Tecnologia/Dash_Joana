@@ -13,6 +13,7 @@ export type QueryIntent =
     | 'QUERY_PERGUNTAS_FREQUENTES'
     | 'QUERY_CLIENTES_CONVERTIDOS'
     | 'QUERY_CONVERSAS_RECENTES'
+    | 'QUERY_EXEMPLO'
     | 'GENERAL_KPI'
     | 'UNKNOWN';
 
@@ -22,6 +23,7 @@ Sua ÚNICA função é retornar um dos códigos abaixo em resposta à pergunta d
 Não explique nada. Retorne APENAS o código, sem aspas, sem pontuação.
 
 Códigos disponíveis e quando usar cada um:
+- QUERY_EXEMPLO → usuário pede um exemplo, mensagem real, trecho de conversa, como a Joana respondeu, o que o cliente disse, me mostre uma conversa
 - QUERY_OBJECOES → usuário quer saber por que pessoas desistiram, objeções, motivos de abandono, coparticipação, reclamações, tabela cara, rejeições
 - QUERY_PLANOS_VIDAS → usuário quer saber sobre planos contratados, vidas, quantidade de beneficiários, plano familiar, empresarial
 - QUERY_FUNIL_ABANDONO → usuário quer saber onde no funil as pessoas saíram, etapas de abandono, conversão por etapa
@@ -48,6 +50,7 @@ export async function detectIntent(userMessage: string): Promise<QueryIntent> {
             'QUERY_PERGUNTAS_FREQUENTES',
             'QUERY_CLIENTES_CONVERTIDOS',
             'QUERY_CONVERSAS_RECENTES',
+            'QUERY_EXEMPLO',
             'GENERAL_KPI',
         ];
 

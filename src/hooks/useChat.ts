@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChatMessage, DashboardMetrics } from '@/types/dashboard';
 import { geminiService } from '@/services/geminiService';
 import { detectIntent } from '@/services/intentService';
-import { executeQuery } from '@/services/queryBuilder';
+import { executeQuery, searchConversasByKeywords } from '@/services/queryBuilder';
+import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================
 // useChat — orquestra pipeline RAG:
@@ -15,17 +16,25 @@ import { executeQuery } from '@/services/queryBuilder';
 // e garantir que a primeira interação seja puramente baseada na pergunta do usuário.
 const INITIAL_MESSAGE_TEXT = 'Olá! Sou a Joana, sua assistente de análise. Posso analisar dados das conversas em tempo real. O que deseja saber sobre sua operação?';
 
-const BASE_SYSTEM_CONTEXT = (dashboardData: DashboardMetrics | null) => `
+const BASE_SYSTEM_CONTEXT = (dashboardData: DashboardMetrics | null, insightsHistorico: string) => `
 Você é a Joana, Consultora Estratégica em Vendas de Planos de Saúde.
 Seu tom é cordial, direto, analítico e de negócio. Proibido usar emojis.
 
 REGRAS CRÍTICAS DE COMUNICAÇÃO:
-1. NUNCA liste números de volta com pontos. O usuário JÁ ESTÁ VENDO OS GRÁFICOS na tela dele.
-2. Seu papel é LER os dados invisíveis a olho nu e traduzir em INSIGHTS DE NEGÓCIO reais.
-3. É ESTRITAMENTE PROIBIDO USAR MARKDOWN. Não use *asteriscos* para negrito nem caracteres especiais para formatar texto e títulos. Escreva de forma absolutamente limpa e como humano num chat.
-4. Para parecer mais natural, separe seus blocos de linha de raciocínio. Sempre que for mudar o raciocínio ou pauta, digite EXATAMENTE o símbolo "||" para darmos quebra de balão na fala. Ex: "Notei isso aqui. || Isso significa X. || Recomendo fazer Y."
-5. Identifique o gargalo principal e termine sempre com UMA recomendação tática tática da operação.
+1. RESPONDA DIRETAMENTE À PERGUNTA DO USUÁRIO. Não faça análise genérica se a pergunta for específica.
+2. NUNCA liste números de volta com pontos. O usuário JÁ ESTÁ VENDO OS GRÁFICOS na tela dele.
+3. Seu papel é LER os dados invisíveis a olho nu e traduzir em INSIGHTS DE NEGÓCIO reais.
+4. É ESTRITAMENTE PROIBIDO USAR MARKDOWN. Não use *asteriscos* para negrito nem caracteres especiais para formatar texto e títulos. Escreva de forma absolutamente limpa e como humano num chat.
+5. Para parecer mais natural, separe seus blocos de raciocínio. Sempre que for mudar o raciocínio ou pauta, digite EXATAMENTE o símbolo "||" para darmos quebra de balão na fala. Ex: "Notei isso aqui. || Isso significa X. || Recomendo fazer Y."
+6. Identifique o gargalo principal e termine sempre com UMA recomendação tática da operação.
+
+DADOS DO DASHBOARD ATUAL (métricas processadas do período selecionado):
+${dashboardData ? JSON.stringify(dashboardData, null, 2) : 'Nenhum dado carregado ainda.'}
+
+${insightsHistorico ? `HISTÓRICO DE INSIGHTS GERADOS (todos os períodos disponíveis):
+${insightsHistorico}` : ''}
 `;
+
 
 export function useChat(dashboardData: DashboardMetrics | null) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -45,6 +54,33 @@ export function useChat(dashboardData: DashboardMetrics | null) {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // Carrega insights historicos do Supabase para enriquecer o contexto da IA
+    const loadInsightsHistorico = async (): Promise<string> => {
+        try {
+            const { data } = await supabase
+                .schema('dashboard')
+                .from('dash_metrics_cache')
+                .select('metrics_data')
+                .eq('id', 2)
+                .single();
+            if (!data?.metrics_data) return '';
+            const history = (data.metrics_data as any).history || [];
+            return history.map((h: any) => {
+                const linhas = [
+                    `Periodo: ${h.periodoStr || ''}`,
+                    h.negocio?.diagnostico ? `Diagnostico: ${h.negocio.diagnostico}` : '',
+                    h.negocio?.gargalo ? `Gargalo: ${h.negocio.gargalo}` : '',
+                    h.negocio?.recomendacao ? `Recomendacao: ${h.negocio.recomendacao}` : '',
+                    h.marketing?.gancho1 ? `Gancho marketing: ${h.marketing.gancho1}` : '',
+                    h.marketing?.copyFeed ? `Copy feed: ${h.marketing.copyFeed}` : '',
+                ];
+                return linhas.filter(Boolean).join('\n');
+            }).join('\n\n---\n\n');
+        } catch {
+            return '';
+        }
+    };
+
     const sendMessage = async () => {
         const text = inputValue.trim();
         if (!text) return;
@@ -56,10 +92,10 @@ export function useChat(dashboardData: DashboardMetrics | null) {
         
         if (timerRef.current) clearTimeout(timerRef.current);
         
-        // Aguarda 6s antes de chamar a IA, possibilitando múltiplas mensagens do user
+        // Aguarda 8s antes de chamar a IA, possibilitando multiplas mensagens do user
         timerRef.current = setTimeout(() => {
             processPendingMessages();
-        }, 6000);
+        }, 8000);
     };
 
     const processPendingMessages = async () => {
@@ -94,24 +130,39 @@ export function useChat(dashboardData: DashboardMetrics | null) {
                  history.pop();
             }
 
-            // ── PASSO 1: Detectar intencao (chamada leve, sem dados) ──
+            // ── PASSO 1: Carrega contexto historico de insights ──
+            const insightsHistorico = await loadInsightsHistorico();
+            const systemCtx = BASE_SYSTEM_CONTEXT(dashboardData, insightsHistorico);
+
+            // ── PASSO 2: Detectar intencao ──
             const intent = await detectIntent(combinedText);
 
             let finalPrompt = '';
 
-            if (intent === 'UNKNOWN' || intent === 'GENERAL_KPI') {
-                // ── PASSO 2a: Pergunta geral/livre → fornece contexto absoluto de todo o dashboard atual ──
+            if (intent === 'QUERY_EXEMPLO') {
+                // ── Busca exemplos reais de conversas por palavras-chave da pergunta ──
+                const exemplos = await searchConversasByKeywords(combinedText);
                 finalPrompt = `
-                    ${BASE_SYSTEM_CONTEXT(dashboardData)}
-                    
-                    O usuário perguntou livremente (blocos consolidados): "${combinedText}"
-                    
-                    COMO RESPONDER:
-                    Analise os dados fornecidos abaixo interpretando o cenário atual. O que explica esses resultados? Qual é o ponto crítico que o diretor precisa saber agora?
-                    Fale em texto corrido e fluido. É terminantemente proibido devolver uma lista com os números diários (ex: "O dia X teve Y").
-                    
-                    DADOS TOTAIS DO ATENDIMENTO ATUAL:
-                    ${JSON.stringify(dashboardData, null, 2)}
+                    ${systemCtx}
+
+                    O usuario pediu: "${combinedText}"
+
+                    Abaixo estao mensagens REAIS extraidas das conversas do WhatsApp que sao relevantes para o que ele pediu.
+                    Use esses exemplos para responder de forma precisa e concreta.
+                    Cite o conteudo das mensagens de forma natural, sem expor dados pessoais (nome, telefone, CPF).
+
+                    MENSAGENS ENCONTRADAS (${exemplos.length} registros):
+                    ${JSON.stringify(exemplos.slice(0, 20), null, 2)}
+                `;
+            } else if (intent === 'UNKNOWN' || intent === 'GENERAL_KPI') {
+                // ── Pergunta geral/livre → responde diretamente com base no contexto completo ──
+                finalPrompt = `
+                    ${systemCtx}
+
+                    O usuario perguntou: "${combinedText}"
+
+                    INSTRUCAO: Responda DIRETAMENTE a essa pergunta especifica usando os dados do dashboard e os insights historicos fornecidos no contexto acima.
+                    Nao faça analise generica do dashboard se a pergunta for especifica. Se perguntou sobre marketing, responda sobre marketing. Se perguntou sobre um periodo, use os dados daquele periodo.
                 `;
             } else {
                 // ── PASSO 2b: Pergunta analitica → busca dados cirurgicos no Supabase ──

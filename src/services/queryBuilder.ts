@@ -308,8 +308,7 @@ async function handleConversasRecentes(): Promise<QueryResult> {
         description: '50 mensagens mais recentes dos clientes'
     };
 }
-
-// ============================================================
+// ============================================================
 // Entry point principal
 // ============================================================
 
@@ -324,4 +323,71 @@ export async function executeQuery(intent: QueryIntent): Promise<QueryResult | n
         case 'QUERY_CONVERSAS_RECENTES': return handleConversasRecentes();
         default: return null;
     }
+}
+
+// ============================================================
+// Busca mensagens reais por palavras-chave extraidas da pergunta
+// Usado quando o usuario pede exemplos ou trechos de conversas
+// ============================================================
+
+export async function searchConversasByKeywords(
+    userQuestion: string
+): Promise<{ role: string; content: string }[]> {
+    const stopwords = new Set([
+        'de', 'da', 'do', 'um', 'uma', 'me', 'que', 'o', 'a', 'os', 'as',
+        'com', 'por', 'para', 'pra', 'em', 'no', 'na', 'nos', 'nas',
+        'e', 'ou', 'mas', 'eh', 'tem', 'foi', 'ser', 'ter',
+        'exemplo', 'exemplos', 'mostre', 'mostra', 'trazer', 'traga',
+        'como', 'quando', 'onde', 'qual', 'quais', 'algum', 'alguma',
+    ]);
+
+    const keywords = userQuestion
+        .toLowerCase()
+        .replace(/[^a-záàâãéèêíïóôõöúçüñ\s]/gi, '')
+        .split(/\s+/)
+        .filter(w => w.length > 3 && !stopwords.has(w));
+
+    if (keywords.length === 0) keywords.push('plano', 'valor', 'mensalidade');
+
+    const { data } = await supabase
+        .schema('dashboard')
+        .from('dash_mensagens_realtime')
+        .select('session_id, content, message_type, is_ia, received_at')
+        .eq('event_type', 'message_created')
+        .not('received_at', 'is', null)
+        .order('received_at', { ascending: false })
+        .limit(2000);
+
+    const rows = (data || []) as Record<string, unknown>[];
+
+    // Filtra mensagens que contem pelo menos 1 keyword relevante
+    const relevantes = rows
+        .filter(r => keywords.some(kw => ((r.content as string) || '').toLowerCase().includes(kw)))
+        .slice(0, 30);
+
+    // Agrupa por sessao para dar contexto real da conversa
+    const sessionsUsadas = new Set<string>();
+    const resultado: { role: string; content: string }[] = [];
+
+    for (const r of relevantes) {
+        const sid = r.session_id as string;
+        if (sessionsUsadas.size >= 8) break;
+        sessionsUsadas.add(sid);
+
+        const sessionMsgs = rows
+            .filter(m => m.session_id === sid)
+            .sort((a, b) => new Date(a.received_at as string).getTime() - new Date(b.received_at as string).getTime())
+            .slice(0, 6);
+
+        for (const m of sessionMsgs) {
+            const isAI = (m.is_ia as boolean) || (m.message_type as string) === 'outgoing';
+            const content = ((m.content as string) || '').slice(0, 400);
+            if (content.trim().length > 10) {
+                resultado.push({ role: isAI ? 'joana' : 'cliente', content });
+            }
+        }
+        resultado.push({ role: '---', content: '--- fim da conversa ---' });
+    }
+
+    return resultado;
 }
