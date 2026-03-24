@@ -470,9 +470,11 @@ export async function processMessages(
         const start = session.timestamps[0];
         const end = session.timestamps[session.timestamps.length - 1];
         const diff = (end.getTime() - start.getTime()) / (1000 * 60);
-        if (diff > 0 && diff < 120) {
-            duracoes.push(diff);
-            if (stage === 'Fechamento') duracoesFechamento.push(diff);
+        if (diff > 0) {
+            // Conversas em geral (ignora abandonadas que duraram muitos dias para nao distorcer a media)
+            if (diff < 180) duracoes.push(diff);
+            // Fechamento real pode levar ate 3 dias (4320 min) de ida e volta e analise de plano
+            if (stage === 'Fechamento' && diff < 4320) duracoesFechamento.push(diff);
         }
 
         if (isAbandono) {
