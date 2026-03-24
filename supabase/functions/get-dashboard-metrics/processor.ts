@@ -189,10 +189,12 @@ export async function processMessages(
         }
 
         const humanConcat = session.humanMessages.join(' ').toLowerCase();
-        if (/(valor|custo|preço|mensalidade)/.test(humanConcat)) perfFreq["Valores e cotação"]++;
-        if (/(hospital|rede|credenciad|médico)/.test(humanConcat)) perfFreq["Rede credenciada"]++;
-        if (/(carência|prazo)/.test(humanConcat)) perfFreq["Carência"]++;
-        if (/(internação|cirurgia|quarto|enfermaria|uti\b|cobertura)/.test(humanConcat)) perfFreq["Internação e cobertura"]++;
+        if (/(valor|custo|pre[çc]o|mensalid|quanto|or[çc]amento|tabela)/.test(humanConcat)) perfFreq["Valores e cotação"]++;
+        if (/(hospital|cl[íi]nica|m[ée]dicos?|rede|credenciad|atende|pediatra|obstetra|especialista)/.test(humanConcat)) perfFreq["Rede credenciada"]++;
+        if (/(car[êe]ncia|prazo|quando posso usar|tempo pra|espera|imediato)/.test(humanConcat)) perfFreq["Carência"]++;
+        if (/(dependentes?|filhos?|espos[oa]|marido|mulher|c[ôo]njuge|fam[íi]lia|meus pais)/.test(humanConcat)) perfFreq["Inclusão de dependentes"]++;
+        if (/(interna[çc][ãa]o|internar|cirurgia|opera[çc][ãa]o|quarto|enfermaria|uti\b|pronto.?socorro|cobertura)/.test(humanConcat)) perfFreq["Internação e cobertura"]++;
+        if (/(co.?participa[çc][ãa]o|copart|pago [àa] parte|pago por consulta|paga a parte|taxa)/.test(humanConcat)) perfFreq["Coparticipação"]++;
 
         let stage = 'Cotação';
         const humanText = session.humanMessages.join(' ').toLowerCase();
@@ -549,12 +551,12 @@ export async function processMessages(
         "Inclusão de dependentes": [],
     };
     const regexPorTopico: Record<string, RegExp> = {
-        "Valores e cotação": /(valor|custo|pre[çc]o|mensalidade|quanto [Éé]|quanto fica|quanto custa|quanto sai)/i,
-        "Internação e cobertura": /(interna[çc][ãa]o|cirurgia|quarto|enfermaria|uti\b|cobertura)/i,
-        "Coparticipação": /(co.?participa[çc][ãa]o|coparticipa|pago por|pago a parte|paga por|taxa por)/i,
-        "Carência": /(car[êè]ncia|quando posso|quando come[çc]a|prazo)/i,
-        "Rede credenciada": /(hospital|cl[íì]nica|m[éè]dico|rede|credenciad|atende|cobert[ao] em)/i,
-        "Inclusão de dependentes": /(dependente|filho|esposa|esposo|marido|mulher|familiar|adicionar|incluir|família)/i,
+        "Valores e cotação": /(valor|custo|pre[çc]o|mensalidade|quanto [Éé]|quanto fica|quanto custa|custa quanto|quanto sai|qual o valor|or[çc]amento|tabela|mais barato|mais em conta)/i,
+        "Internação e cobertura": /(interna[çc][ãa]o|internar|cirurgia|opera[çc][ãa]o|quarto|enfermaria|uti\b|pronto.?socorro|cobertura)/i,
+        "Coparticipação": /(co.?participa[çc][ãa]o|copart|pago por fora|pago [àa] parte|paga por consulta|taxa por consulta|valor da consulta|pago exame)/i,
+        "Carência": /(car[êe]ncia|quando posso usar|quanto tempo pra usar|prazo para|libera[çc][ãa]o|tempo de espera|usar de imediato)/i,
+        "Rede credenciada": /(hospital|cl[íi]nica|m[ée]dicos?|rede|credenciad|atende em|qual hospital|lista de m[ée]dicos|pediatra|obstetra|especialista)/i,
+        "Inclusão de dependentes": /(dependente|filhos?|espos[oa]|marido|mulher|c[ôo]njuge|agregado|adicionar|incluir|fam[íi]lia|titular|meus pais)/i,
     };
     clientes.forEach(cliente => {
         cliente.humanMessages.forEach((msg: string) => {
