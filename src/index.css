@@ -136,3 +136,14 @@ All colors MUST be HSL.
 .recharts-responsive-container:focus {
   outline: none !important;
 }
+
+/* Correcao de outline e box-shadow (Tailwind rings) ao clicar com mouse/touch no mobile */
+*:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important; /* Remove rings do Tailwind injetados em focus */
+}
+
+/* Remove a caixa cinza/laranja de selecao tatil padrao do iOS e Android */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
