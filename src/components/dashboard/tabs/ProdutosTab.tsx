@@ -34,8 +34,12 @@ const dependentesConfig = {
 } satisfies ChartConfig;
 
 export function ProdutosTab() {
-    const { produtosData, totalPlanos } = useDashboard();
+    const { produtosData, totalPlanos, periodoAnalise, granularidadeLabel } = useDashboard();
     const [activePlan, setActivePlan] = useState<"empresarial" | "familiar">("empresarial");
+
+    const periodoLabel = periodoAnalise.inicio !== '--'
+        ? `Empresarial vs. Ind./Familiar - ${periodoAnalise.inicio} a ${periodoAnalise.fim} · por ${granularidadeLabel}`
+        : 'Carregando periodo...';
 
     const totalPassado = produtosData.dependentes.reduce((acc, curr) => acc + curr.mesPassado, 0);
     const totalAtual = produtosData.dependentes.reduce((acc, curr) => acc + curr.mesAtual, 0);
@@ -78,7 +82,7 @@ export function ProdutosTab() {
                     <div className="flex flex-col sm:flex-row border-b">
                         <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 sm:px-6">
                             <h3 className="text-sm font-semibold text-gray-700">Planos mais cotados</h3>
-                            <p className="text-xs text-gray-500">Empresarial vs. Ind./Familiar - Últimas 4 semanas</p>
+                            <p className="text-xs text-gray-500">{periodoLabel}</p>
                         </div>
                         <div className="flex">
                             <button
