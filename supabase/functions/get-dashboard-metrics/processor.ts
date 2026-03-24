@@ -192,9 +192,7 @@ export async function processMessages(
         if (/(valor|custo|preço|mensalidade)/.test(humanConcat)) perfFreq["Valores e cotação"]++;
         if (/(hospital|rede|credenciad|médico)/.test(humanConcat)) perfFreq["Rede credenciada"]++;
         if (/(carência|prazo)/.test(humanConcat)) perfFreq["Carência"]++;
-        if (/(dependentes?|filhos?|espos[oa]|família)/.test(humanConcat)) perfFreq["Inclusão de dependentes"]++;
-        if (/(internação|cirurgia|cobertura)/.test(humanConcat)) perfFreq["Internação e cobertura"]++;
-        if (/(co.?participação|coparticipação|comparticipação)/.test(humanConcat)) perfFreq["Coparticipação"]++;
+        if (/(internação|cirurgia|quarto|enfermaria|uti\b|cobertura)/.test(humanConcat)) perfFreq["Internação e cobertura"]++;
 
         let stage = 'Cotação';
         const humanText = session.humanMessages.join(' ').toLowerCase();
@@ -552,7 +550,7 @@ export async function processMessages(
     };
     const regexPorTopico: Record<string, RegExp> = {
         "Valores e cotação": /(valor|custo|pre[çc]o|mensalidade|quanto [Éé]|quanto fica|quanto custa|quanto sai)/i,
-        "Internação e cobertura": /(interna[çc][ãa]o|cirurgia|cobertura|cobre|coberto)/i,
+        "Internação e cobertura": /(interna[çc][ãa]o|cirurgia|quarto|enfermaria|uti\b|cobertura)/i,
         "Coparticipação": /(co.?participa[çc][ãa]o|coparticipa|pago por|pago a parte|paga por|taxa por)/i,
         "Carência": /(car[êè]ncia|quando posso|quando come[çc]a|prazo)/i,
         "Rede credenciada": /(hospital|cl[íì]nica|m[éè]dico|rede|credenciad|atende|cobert[ao] em)/i,
