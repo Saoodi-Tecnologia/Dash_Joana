@@ -60,11 +60,7 @@ export function ProdutosTab() {
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                    <div className="text-xs text-gray-600 mb-1">
-                        Ticket
-                        <br />
-                        Empresarial
-                    </div>
+                    <div className="text-xs text-gray-600 mb-1">Ticket Empresarial</div>
                     <div className="text-2xl font-bold" style={{ color: "#38B3AB" }}>
                         R$ {produtosData.kpis.ticketEmpresarial}
                     </div>
