@@ -46,9 +46,9 @@ export function ProdutosTab() {
     const totalComDependentesPassado = produtosData.dependentes.slice(1).reduce((acc, curr) => acc + curr.mesPassado, 0);
     const totalComDependentesAtual = produtosData.dependentes.slice(1).reduce((acc, curr) => acc + curr.mesAtual, 0);
 
-    // Fallback division by zero prevention
-    const valPassado = totalPassado > 0 ? totalComDependentesPassado / totalPassado : 0;
-    const valAtual = totalAtual > 0 ? totalComDependentesAtual / totalAtual : 0;
+    // Utiliza os valores absolutos para a comparação, para bater com o visual do gráfico radar
+    const valPassado = totalComDependentesPassado;
+    const valAtual = totalComDependentesAtual;
 
     const variacaoPercentual = valPassado > 0 ? Number(
         (((valAtual - valPassado) / valPassado) * 100).toFixed(1)
