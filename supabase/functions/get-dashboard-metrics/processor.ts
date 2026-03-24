@@ -664,9 +664,9 @@ export async function processMessages(
             horarioPico: horarioPico.length > 0 ? horarioPico : [],
             volumeHorario: volumeHorario.length > 0 ? volumeHorario : [],
             duracaoHistograma: [
-                { categoria: 'Quentes (<2m)', quantidade: duracaoRapida, fill: '#93c5fd' }, // blue-300
-                { categoria: 'Médias (2-10m)', quantidade: duracaoMedia, fill: '#3b82f6' }, // blue-500
-                { categoria: 'Longas (>10m)', quantidade: duracaoLonga, fill: '#1e3a8a' }, // blue-900
+                { categoria: 'Até 2 min', quantidade: duracaoRapida, fill: '#93c5fd' }, // blue-300
+                { categoria: '2 a 10 min', quantidade: duracaoMedia, fill: '#3b82f6' }, // blue-500
+                { categoria: 'Mais de 10 min', quantidade: duracaoLonga, fill: '#1e3a8a' }, // blue-900
             ]
         },
         qualidadeData: {

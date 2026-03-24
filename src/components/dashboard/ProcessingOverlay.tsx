@@ -9,7 +9,7 @@ interface ProcessingOverlayProps {
 
 export function ProcessingOverlay({ error }: ProcessingOverlayProps) {
     return (
-        <div className="absolute inset-0 bg-white/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-md z-[9999] flex flex-col items-center justify-center gap-3">
             {error ? (
                 <>
                     <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
@@ -21,8 +21,8 @@ export function ProcessingOverlay({ error }: ProcessingOverlayProps) {
             ) : (
                 <>
                     <Loader2 className="w-12 h-12 text-[#38B3AB] animate-spin" />
-                    <h2 className="text-lg font-bold text-gray-800">Processando Dados...</h2>
-                    <p className="text-sm text-gray-500">Sincronizando com Supabase e Gemini</p>
+                    <h2 className="text-lg font-bold text-gray-800 text-center px-4">Preparando seu Dashboard</h2>
+                    <p className="text-sm text-gray-600 text-center px-6">Estamos organizando as informações para você...</p>
                 </>
             )}
         </div>

@@ -33,6 +33,13 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const { isProcessing, error, kpis, ...allData } = useDashboard();
 
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.overflow-y-auto');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+    }
+  }, [activeTab]);
+
   // Criar objeto completo para o chat
   const dashboardData = { kpis, ...allData } as any;
   const chat = useChat(dashboardData);
