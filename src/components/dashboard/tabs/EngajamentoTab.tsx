@@ -13,12 +13,12 @@ const horarioPicoConfig = {
 
 const roscaConfig = {
     ia: {
-        label: "IA (Joana)",
-        color: "#fb923c",
+        label: "Joana",
+        color: "#f97316",
     },
     humano: {
-        label: "Clientes",
-        color: "#38bdf8",
+        label: "Leads",
+        color: "#10b981",
     },
 } satisfies ChartConfig;
 
@@ -57,10 +57,14 @@ export function EngajamentoTab() {
     const totalHumano = engajamentoData.kpis.mensagensHumanas || 0;
     const totalGeral = totalIa + totalHumano;
 
-    const roscaData = [{
+    const roscaData = totalGeral > 0 ? [{
         name: "Mensagens",
         ia: totalIa,
         humano: totalHumano
+    }] : [{
+        name: "Sem Dados",
+        ia: 50,
+        humano: 50
     }];
 
     const percentualJoana = totalGeral > 0 ? ((totalIa / totalGeral) * 100).toFixed(1) : 0;
@@ -156,10 +160,10 @@ export function EngajamentoTab() {
                     </div>
                 </div>
 
-                {/* Grafico Rosca Stacked: Desempenho Humano vs Joana */}
+                {/* Grafico Rosca Stacked: Leads x Joana */}
                 <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex flex-col h-full lg:col-span-1">
                     <div className="mb-3">
-                        <h3 className="text-sm font-semibold text-gray-700">Desempenho Humano vs Joana</h3>
+                        <h3 className="text-sm font-semibold text-gray-700">Leads x Joana</h3>
                         <p className="text-xs text-gray-500 mt-1">Quem fala mais nas conversões?</p>
                     </div>
                     <div className="flex-grow flex flex-col justify-center items-center pb-0">
@@ -169,23 +173,22 @@ export function EngajamentoTab() {
                         >
                             <RadialBarChart
                                 data={roscaData}
-                                endAngle={180}
-                                innerRadius={80}
-                                outerRadius={110}
+                                startAngle={0}
+                                endAngle={360}
+                                innerRadius={60}
+                                outerRadius={80}
                             >
                                 <RadialBar
                                     dataKey="ia"
                                     fill="var(--color-ia)"
                                     stackId="a"
                                     cornerRadius={5}
-                                    className="stroke-transparent stroke-2"
                                 />
                                 <RadialBar
                                     dataKey="humano"
                                     stackId="a"
                                     cornerRadius={5}
                                     fill="var(--color-humano)"
-                                    className="stroke-transparent stroke-2"
                                 />
                                 <ChartTooltip
                                     cursor={false}
