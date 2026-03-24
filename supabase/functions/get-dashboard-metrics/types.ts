@@ -96,6 +96,8 @@ export interface EngajamentoKpis {
     sessoesLongasPct: number;
     sessoesLongasCount: number;
     duracaoMedia: number;
+    mensagensIA: number;
+    mensagensHumanas: number;
 }
 
 export interface EngajamentoData {

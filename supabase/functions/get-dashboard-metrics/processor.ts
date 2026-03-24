@@ -141,6 +141,8 @@ export async function processMessages(
     for (let i = 0; i < 24; i++) volumeByHour[`${i}h`] = 0;
 
     let totalMensagensH = 0;
+    let totalMensagensIA = 0;
+    let totalMensagensHumanas = 0;
     let totalVidasEmp = 0;
     let countEmp = 0;
     let totalVidasFam = 0;
@@ -162,6 +164,8 @@ export async function processMessages(
         const isSegundaParte = date >= splitDate;
 
         totalMensagensH += session.messages.length;
+        totalMensagensHumanas += session.humanMessages.length;
+        totalMensagensIA += session.aiMessages.length;
 
         session.timestamps.forEach((t: Date) => {
             const hourStr = `${t.getHours()}h`;
@@ -646,7 +650,9 @@ export async function processMessages(
                 clientesRetorno: returnUsers.size,
                 sessoesLongasPct: totalConversas > 0 ? Number((sessoesLongas / totalConversas * 100).toFixed(1)) : 0,
                 sessoesLongasCount: sessoesLongas,
-                duracaoMedia: Number(tempoMedio.toFixed(1))
+                duracaoMedia: Number(tempoMedio.toFixed(1)),
+                mensagensIA: totalMensagensIA,
+                mensagensHumanas: totalMensagensHumanas
             },
             horarioPico: horarioPico.length > 0 ? horarioPico : [],
             volumeHorario: volumeHorario.length > 0 ? volumeHorario : []

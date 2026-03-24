@@ -1,5 +1,5 @@
 import React from 'react';
-import { AreaChart, Area, BarChart, Bar, XAxis, CartesianGrid, Rectangle } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, CartesianGrid, Rectangle, RadialBarChart, RadialBar, PolarRadiusAxis, Label } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -8,6 +8,17 @@ const horarioPicoConfig = {
     mensagens: {
         label: "Mensagens",
         color: "#155DFC",
+    },
+} satisfies ChartConfig;
+
+const roscaConfig = {
+    ia: {
+        label: "IA (Joana)",
+        color: "#fb923c",
+    },
+    humano: {
+        label: "Clientes",
+        color: "#38bdf8",
     },
 } satisfies ChartConfig;
 
@@ -40,6 +51,19 @@ export function EngajamentoTab() {
     const xAxisVolumeProps = muitosPontosVolume
         ? { interval: Math.floor(engajamentoData.volumeHorario.length / 6) }
         : { interval: 0 };
+
+    // Dados para o grafico Humano vs IA
+    const totalIa = engajamentoData.kpis.mensagensIA || 0;
+    const totalHumano = engajamentoData.kpis.mensagensHumanas || 0;
+    const totalGeral = totalIa + totalHumano;
+
+    const roscaData = [{
+        name: "Mensagens",
+        ia: totalIa,
+        humano: totalHumano
+    }];
+
+    const percentualJoana = totalGeral > 0 ? ((totalIa / totalGeral) * 100).toFixed(1) : 0;
 
     return (
         <div className="space-y-4">
@@ -79,14 +103,14 @@ export function EngajamentoTab() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Grafico de area: Horario de Pico (todas as horas com atividade) */}
-                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="lg:col-span-2 bg-white rounded-lg p-4 shadow-sm border border-gray-200">
                     <div className="mb-3">
                         <h3 className="text-sm font-semibold text-gray-700">Horario de Pico</h3>
                         <p className="text-xs text-gray-500 mt-1">Distribuicao de mensagens ao longo do dia</p>
                     </div>
-                    <ChartContainer config={horarioPicoConfig} className="h-[200px] w-full">
+                    <ChartContainer config={horarioPicoConfig} className="h-[250px] w-full">
                         <AreaChart
                             data={engajamentoData.horarioPico}
                             margin={{ left: 0, right: 0, top: 5, bottom: 5 }}
@@ -132,65 +156,77 @@ export function EngajamentoTab() {
                     </div>
                 </div>
 
-                {/* Grafico de barras: Top 4 horarios mais ativos */}
-                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                {/* Grafico Rosca Stacked: Desempenho Humano vs Joana */}
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex flex-col h-full lg:col-span-1">
                     <div className="mb-3">
-                        <h3 className="text-sm font-semibold text-gray-700">Volume por Horario</h3>
-                        <p className="text-xs text-gray-500 mt-1">Horarios mais ativos do dia</p>
+                        <h3 className="text-sm font-semibold text-gray-700">Desempenho Humano vs Joana</h3>
+                        <p className="text-xs text-gray-500 mt-1">Quem fala mais nas conversões?</p>
                     </div>
-                    <ChartContainer config={volumeHorarioConfig} className="h-[200px] w-full">
-                        <BarChart
-                            data={engajamentoData.volumeHorario}
-                            margin={{ left: 0, right: 0, top: 5, bottom: 5 }}
+                    <div className="flex-grow flex flex-col justify-center items-center pb-0">
+                        <ChartContainer
+                            config={roscaConfig}
+                            className="mx-auto aspect-square w-full max-w-[200px]"
                         >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                            <XAxis 
-                                dataKey="horario" 
-                                tickLine={false} 
-                                axisLine={false} 
-                                tickMargin={10} 
-                                style={{ fontSize: "11px" }}
-                                {...xAxisVolumeProps}
-                            />
-                            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                            <Bar
-                                dataKey="mensagens"
-                                radius={8}
-                                shape={(props: any) => {
-                                    const { fill, x, y, width, height, index } = props;
-                                    const isActive = index === 0;
-                                    if (isActive) {
-                                        return (
-                                            <Rectangle
-                                                x={x}
-                                                y={y}
-                                                width={width}
-                                                height={height}
-                                                fill={fill}
-                                                fillOpacity={0.8}
-                                                stroke={fill}
-                                                strokeWidth={2}
-                                                strokeDasharray="4"
-                                                strokeDashoffset="4"
-                                                radius={8}
-                                            />
-                                        );
-                                    }
-                                    return <Rectangle x={x} y={y} width={width} height={height} fill={fill} radius={8} />;
-                                }}
-                            />
-                        </BarChart>
-                    </ChartContainer>
-                    <div className="mt-3 pt-3 border-t border-gray-100">
+                            <RadialBarChart
+                                data={roscaData}
+                                endAngle={180}
+                                innerRadius={80}
+                                outerRadius={110}
+                            >
+                                <RadialBar
+                                    dataKey="ia"
+                                    fill="var(--color-ia)"
+                                    stackId="a"
+                                    cornerRadius={5}
+                                    className="stroke-transparent stroke-2"
+                                />
+                                <RadialBar
+                                    dataKey="humano"
+                                    stackId="a"
+                                    cornerRadius={5}
+                                    fill="var(--color-humano)"
+                                    className="stroke-transparent stroke-2"
+                                />
+                                <ChartTooltip
+                                    cursor={false}
+                                    content={<ChartTooltipContent hideLabel />}
+                                />
+                                <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+                                    <Label
+                                        content={({ viewBox }) => {
+                                            if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                                                return (
+                                                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
+                                                        <tspan
+                                                            x={viewBox.cx}
+                                                            y={(viewBox.cy || 0) - 16}
+                                                            className="fill-foreground text-2xl font-bold"
+                                                        >
+                                                            {totalGeral.toLocaleString()}
+                                                        </tspan>
+                                                        <tspan
+                                                            x={viewBox.cx}
+                                                            y={(viewBox.cy || 0) + 4}
+                                                            className="fill-muted-foreground text-xs"
+                                                        >
+                                                            Msgs Totais
+                                                        </tspan>
+                                                    </text>
+                                                )
+                                            }
+                                        }}
+                                    />
+                                </PolarRadiusAxis>
+                            </RadialBarChart>
+                        </ChartContainer>
+                    </div>
+                    <div className="mt-auto pt-3 border-t border-gray-100">
                         <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {/* Insight dinamico: top horario real calculado do banco */}
                             <span className="text-xs font-medium text-gray-700">
-                                {topVolumeHorario.mensagens > 0
-                                    ? `Horario de pico as ${topVolumeHorario.horario} com ${topVolumeHorario.mensagens} mensagens`
-                                    : 'Sem dados de volume no periodo'}
+                                A IA enviou {percentualJoana}% das msgs nesses atendimentos
                             </span>
                         </div>
                     </div>
