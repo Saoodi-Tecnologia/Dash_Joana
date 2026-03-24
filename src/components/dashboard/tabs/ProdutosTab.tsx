@@ -134,32 +134,34 @@ export function ProdutosTab() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 flex flex-col h-full">
                     <div className="mb-3">
                         <h3 className="text-sm font-semibold text-gray-700">Faixas etárias mais comuns nas cotações</h3>
                         <p className="text-xs text-gray-500 mt-1">Distribuição por idade dos interessados</p>
                     </div>
-                    <ChartContainer config={faixasEtariasConfig} className="h-[200px] w-full">
-                        <BarChart
-                            data={produtosData.faixasEtarias}
-                            layout="vertical"
-                            margin={{ left: 0, right: 16, top: 5, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="faixa" type="category" tickLine={false} tickMargin={10} axisLine={false} hide />
-                            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                            <Bar dataKey="quantidade" fill="var(--color-quantidade)" radius={4}>
-                                <LabelList dataKey="faixa" position="insideLeft" offset={8} fill="white" fontSize={12} fontWeight={500} />
-                            </Bar>
-                        </BarChart>
-                    </ChartContainer>
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                            <span className="text-xs font-medium text-gray-700">Faixa {topFaixa.faixa} lidera com {topFaixa.quantidade} cotações</span>
+                    <div className="flex-grow flex flex-col justify-between">
+                        <ChartContainer config={faixasEtariasConfig} className="h-[250px] w-full">
+                            <BarChart
+                                data={produtosData.faixasEtarias}
+                                layout="vertical"
+                                margin={{ left: 0, right: 16, top: 5, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="faixa" type="category" tickLine={false} tickMargin={10} axisLine={false} hide />
+                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                                <Bar dataKey="quantidade" fill="var(--color-quantidade)" radius={4}>
+                                    <LabelList dataKey="faixa" position="insideLeft" offset={8} fill="white" fontSize={12} fontWeight={500} />
+                                </Bar>
+                            </BarChart>
+                        </ChartContainer>
+                        <div className="mt-auto pt-3 border-t border-gray-100">
+                            <div className="flex items-center gap-2 mb-1">
+                                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span className="text-xs font-medium text-gray-700">Faixa {topFaixa.faixa} lidera com {topFaixa.quantidade} cotações</span>
+                            </div>
                         </div>
                     </div>
                 </div>
