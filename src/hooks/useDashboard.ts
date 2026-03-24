@@ -42,6 +42,7 @@ export function useDashboard() {
 
     const resumosIA = data?.resumosIA ?? {};
     const periodoAnalise = data?.periodoAnalise ?? { inicio: '--', fim: '--', totalDias: 0 };
+    const origemTrafego = data?.origemTrafego ?? { instagram: 0, facebook: 0, organico: 0, total: 0 };
 
     const totalPlanos = {
         empresarial: produtosData.planosCotacoes.reduce((acc, curr) => acc + curr.empresarial, 0),
@@ -72,5 +73,6 @@ export function useDashboard() {
         weeklyInsightsPeriodo,
         isLoadingInsights,
         reloadInsights,
+        origemTrafego,
     };
 }

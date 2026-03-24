@@ -133,6 +133,13 @@ export interface ResumosIA {
     [key: string]: string | undefined;
 }
 
+export interface OrigemTrafego {
+    instagram: number;
+    facebook: number;
+    organico: number;
+    total: number;
+}
+
 // ============================================================
 // Insights Semanais — Agentes Especializados
 // ============================================================
@@ -196,6 +203,7 @@ export interface DashboardMetrics {
     engajamentoData: EngajamentoData;
     qualidadeData: QualidadeData;
     resumosIA: ResumosIA;
+    origemTrafego?: OrigemTrafego;
 }
 
 export type TabId = 'geral' | 'insights' | 'performance' | 'engajamento' | 'produtos' | 'qualidade';

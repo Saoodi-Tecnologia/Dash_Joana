@@ -34,7 +34,42 @@ export function QualidadeTab() {
             </div>
 
             <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">Score de Qualidade</h3>
+                <div className="relative flex justify-center items-center mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700">Score de Qualidade</h3>
+                    <div className="absolute right-0 top-0 group">
+                        <button className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                        <div className="absolute right-0 top-8 w-72 bg-white rounded-lg shadow-xl border border-gray-200 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 text-left">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-3">Como o Score é calculado?</h4>
+                            <div className="space-y-3">
+                                <div className="flex gap-2">
+                                    <div className="flex-shrink-0 mt-0.5"><span className="text-green-600 font-bold text-sm">↑</span></div>
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-800">Taxa de Conversão (+)</p>
+                                        <p className="text-xs text-gray-500">O score sobe quando leads concluem a venda e a Joana gera o cliente oficial.</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex-shrink-0 mt-0.5"><span className="text-red-500 font-bold text-sm">↓</span></div>
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-800">Taxa de Abandono (-)</p>
+                                        <p className="text-xs text-gray-500">O score é penalizado por clientes que param de interagir.</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex-shrink-0 mt-0.5"><span className="text-orange-500 font-bold text-sm">↓↓</span></div>
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-800">Frustração do Cliente (- -)</p>
+                                        <p className="text-xs text-gray-500">Forte penalidade quando o cliente demonstra irritação (ex: "atendente", "não entendi").</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div className="flex items-center justify-center py-4">
                     <div className="relative w-32 h-32">
                         <svg className="transform -rotate-90 w-32 h-32">

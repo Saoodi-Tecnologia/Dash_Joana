@@ -320,7 +320,7 @@ function MonthGroupedFeed({ insights, subAba }: { insights: WeeklyInsight[]; sub
 }
 
 export function InsightsTab() {
-    const { weeklyInsights, isLoadingInsights } = useDashboard();
+    const { weeklyInsights, isLoadingInsights, origemTrafego } = useDashboard();
     const [subAba, setSubAba] = useState<SubAba>('negocio');
 
     const hasInsights = weeklyInsights.length > 0;
@@ -367,6 +367,51 @@ export function InsightsTab() {
                     : 'Inteligencia de conteudo: ganchos, copies e direcionamentos prontos para campanhas e criativos.'
                 }
             </p>
+
+            {/* Cards de Origem de Trafego — so no marketing */}
+            {subAba === 'marketing' && (
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-pink-500" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instagram Ads</span>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.instagram}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            {origemTrafego.total > 0
+                                ? `${Math.round((origemTrafego.instagram / origemTrafego.total) * 100)}% dos leads`
+                                : 'Sem dados'
+                            }
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-600" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Facebook Ads</span>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.facebook}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            {origemTrafego.total > 0
+                                ? `${Math.round((origemTrafego.facebook / origemTrafego.total) * 100)}% dos leads`
+                                : 'Sem dados'
+                            }
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Organico / Site</span>
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.organico}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            {origemTrafego.total > 0
+                                ? `${Math.round((origemTrafego.organico / origemTrafego.total) * 100)}% dos leads`
+                                : 'Sem dados'
+                            }
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Conteudo */}
             {isLoadingInsights ? (

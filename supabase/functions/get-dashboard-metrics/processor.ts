@@ -87,18 +87,19 @@ export async function processMessages(
 
     const totalClientesUnicos = clientes.length;
     let totalConversas = clientes.length;
-    let counts = { cotacao: 0, interesse: 0, fechamento: 0 };
+    let counts = { cotacao: 0, interesse: 0, fechamento: 0, conversoesReais: 0 };
     let totalTicketsEmp: number[] = [];
     let totalTicketsFam: number[] = [];
     let duracoes: number[] = [];
     let duracoesFechamento: number[] = [];
     let abandonos = 0;
     let mensagensRetidas = 0;
-    let abandonoPorEtapa = { cotacao: 0, interesse: 0 };
+    let abandonoPorEtapa = { cotacao: 0, interesse: 0, fechamento: 0 };
     let sessoesComIntervencaoHumana = 0;
     let sessoesLongas = 0;
     let abandonoInteresseComCopart = 0;
     let abandonoInteresseComInternacao = 0;
+    let origemTrafego = { instagram: 0, facebook: 0, organico: 0 };
 
     let minDate: Date | null = null;
     let maxDate: Date | null = null;
@@ -176,6 +177,17 @@ export async function processMessages(
         if (!funnelByDay[dayKey]) funnelByDay[dayKey] = { cotacao: 0, interesse: 0, fechamento: 0 };
         if (!planosByDay[dayKey]) planosByDay[dayKey] = { empresarial: 0, familiar: 0 };
 
+        // ORIGEM DE TRAFEGO: detectada pela primeira mensagem humana da sessao
+        // Leads de anuncio chegam com link do Instagram ou Facebook no texto inicial
+        const primeiraMsgHumana = (session.humanMessages[0] ?? '').toLowerCase();
+        if (primeiraMsgHumana.includes('instagram.com/')) {
+            origemTrafego.instagram++;
+        } else if (primeiraMsgHumana.includes('fb.me/') || primeiraMsgHumana.includes('facebook.com/')) {
+            origemTrafego.facebook++;
+        } else {
+            origemTrafego.organico++;
+        }
+
         const humanConcat = session.humanMessages.join(' ').toLowerCase();
         if (/(valor|custo|preço|mensalidade)/.test(humanConcat)) perfFreq["Valores e cotação"]++;
         if (/(hospital|rede|credenciad|médico)/.test(humanConcat)) perfFreq["Rede credenciada"]++;
@@ -203,7 +215,11 @@ export async function processMessages(
             /cpf\s+(?:ou\s+cnpj\s+)?do\s+(?:respons[aá]vel|titular)\s+(?:pela|para)\s+(?:a\s+)?contrata/i.test(aiText);
 
         // Sinal 2: Joana gerou resumo =Cliente com dados coletados (CPF, email, plano escolhido)
-        const joanaGeroupResumoCliente = /=cliente[^=]+(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
+        // REGRAS: Deve conter explicitamente '=cliente' e uma das palavras de coleta de dados.
+        // Isso evita que conversas onde a Joana apenas informa as opcoes de pagamento marquem fechamento erroneamente.
+        const resumoOficialIA = aiText.includes('=cliente');
+        const dadosColetados = /(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
+        const joanaGeroupResumoCliente = resumoOficialIA && dadosColetados;
 
         if (joanaFechouPedindoCpf || joanaGeroupResumoCliente) stage = 'Fechamento';
 
@@ -219,11 +235,21 @@ export async function processMessages(
         const lastMsg = session.messages[session.messages.length - 1];
         const lastTs = session.timestamps[session.timestamps.length - 1] as Date;
         const horasDesdeUltimaMsg = (nowDate.getTime() - lastTs.getTime()) / (1000 * 60 * 60);
-        const isAbandono = lastMsg.type === 'ai' && stage !== 'Fechamento' && horasDesdeUltimaMsg > 2;
+
+        // ABANDONO PADRONIZADO: 6 horas de silêncio para qualquer etapa.
+        // Se a Joana mandou a última e o cliente não respondeu em 6h, é abandono.
+        const isAbandono = lastMsg.type === 'ai' && horasDesdeUltimaMsg > 6;
 
         if (!perfByDay[dayKey]) perfByDay[dayKey] = { con: 0, ab: 0 };
-        if (stage === 'Fechamento') perfByDay[dayKey].con++;
-        else if (isAbandono) perfByDay[dayKey].ab++;
+        
+        // CONVERSAO: Somente com o resumo oficial do sistema (=cliente)
+        if (stage === 'Fechamento' && resumoOficialIA) {
+            perfByDay[dayKey].con++;
+            counts.conversoesReais++;
+        } 
+        else if (isAbandono) {
+            perfByDay[dayKey].ab++;
+        }
 
         const aiTextRaw = session.aiMessages.join(' ');
         const humanTextRaw = session.humanMessages.join(' ');
@@ -451,11 +477,16 @@ export async function processMessages(
 
         if (isAbandono) {
             abandonos++;
-            if (stage === 'Cotação') abandonoPorEtapa.cotacao++;
-            else if (stage === 'Interesse') {
+            if (stage === 'Cotação') {
+                abandonoPorEtapa.cotacao++;
+            } else if (stage === 'Interesse') {
                 abandonoPorEtapa.interesse++;
                 if (/(co.?participação|coparticipação)/.test(humanText)) abandonoInteresseComCopart++;
                 if (/(internação|cirurgia)/.test(humanText)) abandonoInteresseComInternacao++;
+            } else if (stage === 'Fechamento') {
+                // Se chegou a pedir CPF mas nao virou venda (=cliente), 
+                // conta como abandono na etapa de fechamento.
+                abandonoPorEtapa.fechamento++;
             }
         }
 
@@ -472,14 +503,15 @@ export async function processMessages(
     const ticketMedio = allTickets.length > 0 ? allTickets.reduce((a, b) => a + b, 0) / allTickets.length : 0;
     const tempoMedio = duracoes.length > 0 ? duracoes.reduce((a, b) => a + b, 0) / duracoes.length : 0;
     const tempoMedioFechamento = duracoesFechamento.length > 0 ? duracoesFechamento.reduce((a, b) => a + b, 0) / duracoesFechamento.length : 0;
-    const taxaConversao = totalConversas > 0 ? (counts.fechamento / totalConversas) * 100 : 0;
+    // A taxa de conversao real usa apenas as sessoes com marcador =cliente
+    const taxaConversao = totalConversas > 0 ? (counts.conversoesReais / totalConversas) * 100 : 0;
     const taxaAbandono = totalConversas > 0 ? (abandonos / totalConversas) * 100 : 0;
+    const taxaFrustracao = totalConversas > 0 ? (mensagensRetidas / totalConversas) * 100 : 0;
 
-    const mensagensTotalReal = totalMensagensH > 0 ? totalMensagensH : 1;
-    let taxaCompreensao = 100 - ((mensagensRetidas / mensagensTotalReal) * 100);
+    let taxaCompreensao = 100 - taxaFrustracao;
     taxaCompreensao = Math.max(0, Math.min(100, taxaCompreensao));
 
-    let scoreGeral = 100 - (taxaAbandono * 0.4) + (taxaConversao * 1.5) - (mensagensRetidas * 1.2);
+    let scoreGeral = 100 - (taxaAbandono * 0.4) + (taxaConversao * 1.5) - (taxaFrustracao * 1.2);
     scoreGeral = Math.max(0, Math.min(100, scoreGeral));
 
     const horarioPico = Object.entries(volumeByHour)
@@ -575,6 +607,7 @@ export async function processMessages(
             abandonoEtapa: [
                 { etapa: 'Cotação', abandonos: abandonoPorEtapa.cotacao, fill: '#38B3AB' },
                 { etapa: 'Interesse', abandonos: abandonoPorEtapa.interesse, fill: '#FB923C' },
+                { etapa: 'Fechamento', abandonos: abandonoPorEtapa.fechamento, fill: '#155DFC' },
             ]
         },
         produtosData: {
@@ -634,7 +667,13 @@ export async function processMessages(
                 { pergunta: "Inclusão de dependentes", frequencia: perfFreq["Inclusão de dependentes"], exemplos: frasesReais["Inclusão de dependentes"].length > 0 ? frasesReais["Inclusão de dependentes"] : faqFallbacks["Inclusão de dependentes"] },
             ]
         },
-        resumosIA: {}
+        resumosIA: {},
+        origemTrafego: {
+            instagram: origemTrafego.instagram,
+            facebook: origemTrafego.facebook,
+            organico: origemTrafego.organico,
+            total: origemTrafego.instagram + origemTrafego.facebook + origemTrafego.organico
+        }
     };
 
     if (!skipAI) {

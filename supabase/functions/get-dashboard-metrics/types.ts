@@ -129,6 +129,13 @@ export interface ResumosIA {
     [key: string]: string | undefined;
 }
 
+export interface OrigemTrafego {
+    instagram: number;
+    facebook: number;
+    organico: number;
+    total: number;
+}
+
 export interface PeriodoAnalise {
     inicio: string;
     fim: string;
@@ -148,4 +155,5 @@ export interface DashboardMetrics {
     engajamentoData: EngajamentoData;
     qualidadeData: QualidadeData;
     resumosIA: ResumosIA;
+    origemTrafego?: OrigemTrafego;
 }
