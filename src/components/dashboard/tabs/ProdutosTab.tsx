@@ -10,7 +10,7 @@ const planosConfig = {
         color: "#38B3AB",
     },
     familiar: {
-        label: "Individual/Familiar",
+        label: "Ind./Familiar",
         color: "#FB923C",
     },
 } satisfies ChartConfig;
@@ -71,7 +71,7 @@ export function ProdutosTab() {
                     <div className="text-xs text-gray-500 mt-1">Média: {produtosData.kpis.mediaVidasEmp} vidas</div>
                 </div>
                 <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                    <div className="text-xs text-gray-600 mb-1">Ticket Individual/Familiar</div>
+                    <div className="text-xs text-gray-600 mb-1">Ticket Ind./Familiar</div>
                     <div className="text-2xl font-bold text-orange-600">R$ {produtosData.kpis.ticketFamiliar}</div>
                     <div className="text-xs text-gray-500 mt-1">Média: {produtosData.kpis.mediaVidasFam} vidas</div>
                 </div>
@@ -82,7 +82,7 @@ export function ProdutosTab() {
                     <div className="flex flex-col sm:flex-row border-b">
                         <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 sm:px-6">
                             <h3 className="text-sm font-semibold text-gray-700">Planos mais cotados</h3>
-                            <p className="text-xs text-gray-500">Empresarial vs. Familiar/Individual - Últimas 4 semanas</p>
+                            <p className="text-xs text-gray-500">Empresarial vs. Ind./Familiar - Últimas 4 semanas</p>
                         </div>
                         <div className="flex">
                             <button
@@ -98,7 +98,7 @@ export function ProdutosTab() {
                                 onClick={() => setActivePlan("familiar")}
                                 className={`flex flex-1 flex-col justify-center gap-1 border-t border-l sm:border-t-0 px-6 py-3 text-left transition-colors ${activePlan === "familiar" ? "bg-orange-50" : "hover:bg-gray-50"}`}
                             >
-                                <span className="text-xs text-gray-600">Individual/Familiar</span>
+                                <span className="text-xs text-gray-600">Ind./Familiar</span>
                                 <span className="text-2xl font-bold" style={{ color: "#FB923C" }}>
                                     {totalPlanos.familiar}
                                 </span>
@@ -127,7 +127,7 @@ export function ProdutosTab() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
                                 <span className="text-xs font-medium text-gray-700">
-                                    {activePlan === "empresarial" ? `Planos empresariais lideram com ${totalPlanos.empresarial} cotações` : `Planos individuais/familiares totalizaram ${totalPlanos.familiar} cotações`}
+                                    {activePlan === "empresarial" ? `Planos empresariais lideram com ${totalPlanos.empresarial} cotações` : `Planos ind./familiares totalizaram ${totalPlanos.familiar} cotações`}
                                 </span>
                             </div>
                         </div>
