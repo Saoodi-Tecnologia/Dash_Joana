@@ -91,7 +91,8 @@ export async function processMessages(
     let totalTicketsEmp: number[] = [];
     let totalTicketsFam: number[] = [];
     let duracoes: number[] = [];
-    let duracoesFechamento: number[] = [];
+    // Mede apenas sessoes que converteram de verdade (=cliente), nao qualquer chegada ao Fechamento
+    let duracoesFechamentoReal: number[] = [];
     let abandonos = 0;
     let mensagensRetidas = 0;
     let abandonoPorEtapa = { cotacao: 0, interesse: 0, fechamento: 0 };
@@ -470,11 +471,10 @@ export async function processMessages(
         const start = session.timestamps[0];
         const end = session.timestamps[session.timestamps.length - 1];
         const diff = (end.getTime() - start.getTime()) / (1000 * 60);
-        if (diff > 0) {
-            // Conversas em geral (ignora abandonadas que duraram muitos dias para nao distorcer a media)
-            if (diff < 180) duracoes.push(diff);
-            // Fechamento real pode levar ate 3 dias (4320 min) de ida e volta e analise de plano
-            if (stage === 'Fechamento' && diff < 4320) duracoesFechamento.push(diff);
+        if (diff > 0 && diff < 120) {
+            duracoes.push(diff);
+            // So conta o tempo de fechamento para conversoes reais (=cliente)
+            if (stage === 'Fechamento' && resumoOficialIA) duracoesFechamentoReal.push(diff);
         }
 
         if (isAbandono) {
@@ -504,7 +504,7 @@ export async function processMessages(
     const allTickets = [...totalTicketsEmp, ...totalTicketsFam];
     const ticketMedio = allTickets.length > 0 ? allTickets.reduce((a, b) => a + b, 0) / allTickets.length : 0;
     const tempoMedio = duracoes.length > 0 ? duracoes.reduce((a, b) => a + b, 0) / duracoes.length : 0;
-    const tempoMedioFechamento = duracoesFechamento.length > 0 ? duracoesFechamento.reduce((a, b) => a + b, 0) / duracoesFechamento.length : 0;
+    const tempoMedioFechamento = duracoesFechamentoReal.length > 0 ? duracoesFechamentoReal.reduce((a, b) => a + b, 0) / duracoesFechamentoReal.length : 0;
     // A taxa de conversao real usa apenas as sessoes com marcador =cliente
     const taxaConversao = totalConversas > 0 ? (counts.conversoesReais / totalConversas) * 100 : 0;
     const taxaAbandono = totalConversas > 0 ? (abandonos / totalConversas) * 100 : 0;

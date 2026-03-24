@@ -100,10 +100,10 @@ export function PerformanceTab() {
                 />
                 <PerfKPICard
                     title="Tempo ate Fechamento"
-                    value={`${performance.kpis.tempoFechamento}min`}
-                    subtitle="Apenas conversas fechadas"
-                    trend={performanceTrends.tempoFechamento}
-                    colorClass="text-blue-600"
+                    value={performance.kpis.tempoFechamento > 0 ? `${performance.kpis.tempoFechamento.toFixed(0)}min` : '--'}
+                    subtitle={performance.kpis.tempoFechamento > 0 ? 'Media das conversas convertidas' : 'Sem conversas convertidas no periodo'}
+                    trend={performance.kpis.tempoFechamento > 0 ? performanceTrends.tempoFechamento : undefined}
+                    colorClass={performance.kpis.tempoFechamento > 0 ? 'text-blue-600' : 'text-gray-400'}
                     trendInvert={true}
                 />
             </div>
