@@ -208,9 +208,12 @@ function CardMarketing({ data }: { data: InsightMarketing }) {
     );
 }
 
-function InsightBlock({ insight, subAba }: { insight: WeeklyInsight; subAba: SubAba }) {
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+function InsightAccordionItem({ insight, subAba }: { insight: WeeklyInsight; subAba: SubAba }) {
     const hasNegocio = !!insight.negocio;
     const hasMarketing = !!insight.marketing;
+    const itemId = `item-${insight.timestamp}`;
 
     const renderLegado = () => (
         <div className="space-y-3">
@@ -236,16 +239,21 @@ function InsightBlock({ insight, subAba }: { insight: WeeklyInsight; subAba: Sub
     );
 
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Periodo: <span className="text-gray-700 normal-case font-medium">{insight.periodoStr}</span>
-                </span>
-                <span className="text-xs text-gray-400">
-                    {new Date(insight.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-            </div>
-            <div className="p-5">
+        <AccordionItem 
+            value={itemId} 
+            className="bg-white border text-left border-gray-200 rounded-lg shadow-sm overflow-hidden mb-3 data-[state=open]:border-slate-400 [&[data-state=open]>div>button]:bg-slate-50"
+        >
+            <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-slate-50/50 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full pr-4 gap-1">
+                    <span className="text-sm font-semibold text-gray-700">
+                        Período: <span className="text-gray-900 ml-1">{insight.periodoStr}</span>
+                    </span>
+                    <span className="text-xs text-gray-400 font-normal">
+                        Gerado em: {new Date(insight.timestamp).toLocaleDateString('pt-BR')}
+                    </span>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-5 pt-4 border-t border-gray-100">
                 {!hasNegocio && !hasMarketing ? (
                     renderLegado()
                 ) : subAba === 'negocio' ? (
@@ -261,8 +269,8 @@ function InsightBlock({ insight, subAba }: { insight: WeeklyInsight; subAba: Sub
                         <p className="text-sm text-gray-400 italic">Analise de marketing nao disponivel para este periodo.</p>
                     )
                 )}
-            </div>
-        </div>
+            </AccordionContent>
+        </AccordionItem>
     );
 }
 
@@ -295,27 +303,30 @@ function MonthGroupedFeed({ insights, subAba }: { insights: WeeklyInsight[]; sub
     const groups = groupByMonth(insights);
     const multiMes = groups.length > 1;
 
+    // Queremos que apenas o primeiro insight venha aberto por padrao
+    const firstInsightId = insights.length > 0 ? `item-${insights[0].timestamp}` : undefined;
+
     return (
-        <div className="space-y-6">
-            {groups.map(group => (
-                <div key={group.mesLabel}>
+        <Accordion type="single" collapsible defaultValue={firstInsightId} className="w-full space-y-6">
+            {groups.map((group) => (
+                <div key={group.mesLabel} className="space-y-3">
                     {multiMes && (
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-3">
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest capitalize">
                                 {group.mesLabel}
                             </span>
                             <div className="flex-1 h-px bg-gray-200" />
-                            <span className="text-xs text-gray-400">{group.items.length} {group.items.length === 1 ? 'relatorio' : 'relatorios'}</span>
+                            <span className="text-xs text-gray-400">{group.items.length} {group.items.length === 1 ? 'relatório' : 'relatórios'}</span>
                         </div>
                     )}
-                    <div className="space-y-4">
+                    <div className="space-y-0">
                         {group.items.map((insight, idx) => (
-                            <InsightBlock key={insight.timestamp ?? idx} insight={insight} subAba={subAba} />
+                            <InsightAccordionItem key={insight.timestamp ?? idx} insight={insight} subAba={subAba} />
                         ))}
                     </div>
                 </div>
             ))}
-        </div>
+        </Accordion>
     );
 }
 
