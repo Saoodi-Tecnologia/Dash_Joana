@@ -78,8 +78,8 @@ export class AnalyticsEngine {
         const prevPeriodEnd = new Date(periodStart.getTime() - 1);
         const prevPeriodStart = new Date(periodStart.getTime() - periodLengthMs);
 
-        const fetchStart = hasPeriodFilter ? prevPeriodStart : undefined;
-        const fetchEnd = hasPeriodFilter ? periodEnd : undefined;
+        const fetchStart = hasPeriodFilter ? prevPeriodStart : periodStart;
+        const fetchEnd = hasPeriodFilter ? periodEnd : periodEnd;
 
         const allMessages = await getRawMessages(this.supabase, fetchStart, fetchEnd);
 
