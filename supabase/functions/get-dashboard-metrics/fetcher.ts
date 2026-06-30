@@ -13,7 +13,7 @@ export async function getRawMessages(
         let query = supabase
             .schema('dashboard')
             .from('dash_mensagens_realtime')
-            .select('session_id, conversation_id, contact_phone, content, message_type, is_ia, sender_type, received_at, chatwoot_created_at, atendimento_tipo, conversation_status, raw_payload')
+            .select('session_id, conversation_id, contact_phone, content, message_type, is_ia, sender_type, received_at, chatwoot_created_at, atendimento_tipo, conversation_status, raw_payload, private')
             .eq('event_type', 'message_created')
             .not('received_at', 'is', null)
             .order('received_at', { ascending: true })

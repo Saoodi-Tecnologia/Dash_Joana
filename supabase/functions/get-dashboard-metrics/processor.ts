@@ -22,6 +22,7 @@ export async function processMessages(
                 humanMessages: [],
                 aiMessages: [],
                 aiOnlyMessages: [],
+                privateMessages: [], // notas privadas do Chatwoot (=Cliente vem daqui)
                 content: '',
                 contactPhone: row.contact_phone || null,
                 labels: []
@@ -54,6 +55,11 @@ export async function processMessages(
         sessions[sessionId].timestamps.push(ts);
         sessions[sessionId].content += ' ' + content;
 
+        // Captura notas privadas separadamente (e.g. resumo =Cliente enviado pelo n8n)
+        if (row.private === true) {
+            sessions[sessionId].privateMessages.push(content);
+        }
+
         if (isHuman) sessions[sessionId].humanMessages.push(content);
         else {
             sessions[sessionId].aiMessages.push(content);
@@ -77,6 +83,7 @@ export async function processMessages(
                 humanMessages: [],
                 aiMessages: [],
                 aiOnlyMessages: [],
+                privateMessages: [],
                 content: '',
                 labels: []
             };
@@ -88,6 +95,7 @@ export async function processMessages(
         c.humanMessages.push(...session.humanMessages);
         c.aiMessages.push(...session.aiMessages);
         c.aiOnlyMessages.push(...session.aiOnlyMessages);
+        c.privateMessages.push(...(session.privateMessages || []));
         c.content += ' ' + session.content;
         if (session.labels) {
             session.labels.forEach((l: string) => {
@@ -236,9 +244,12 @@ export async function processMessages(
         }
 
         // Sinal 1: Joana gerou o resumo oficial =Cliente com dados de contratação coletados.
-        // Esta e a fonte primária de verdade: o bot só gera o resumo quando tem os dados completos.
-        const resumoOficialIA = aiText.includes('=cliente');
-        const dadosColetados = /(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
+        // Fonte primária: nota privada do Chatwoot (enviada pelo n8n após contratação).
+        // Fallback: mensagens públicas de IA (para dados históricos anteriores à nota privada).
+        const privateText = (session.privateMessages || []).join(' ').toLowerCase();
+        const resumoOficialIA = privateText.includes('=cliente') || aiText.includes('=cliente');
+        const dadosColetadosPrivate = /(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(privateText);
+        const dadosColetados = dadosColetadosPrivate || /(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
         const joanaGeroupResumoCliente = resumoOficialIA && dadosColetados;
 
         // Sinal 2: Joana pediu CPF E o cliente efetivamente respondeu com um numero de CPF valido.
