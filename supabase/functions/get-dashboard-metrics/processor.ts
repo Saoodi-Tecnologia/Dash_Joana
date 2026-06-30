@@ -24,8 +24,27 @@ export async function processMessages(
                 aiOnlyMessages: [],
                 content: '',
                 contactPhone: row.contact_phone || null,
+                labels: []
             };
         }
+
+        // Extrai etiquetas de raw_payload se existirem
+        let rowLabels: string[] = [];
+        if (row.raw_payload) {
+            try {
+                const payload = typeof row.raw_payload === 'string' ? JSON.parse(row.raw_payload) : row.raw_payload;
+                if (payload && payload.conversation && Array.isArray(payload.conversation.labels)) {
+                    rowLabels = payload.conversation.labels;
+                }
+            } catch (e) {
+                // erro silencioso
+            }
+        }
+        rowLabels.forEach((l: string) => {
+            if (!sessions[sessionId].labels.includes(l)) {
+                sessions[sessionId].labels.push(l);
+            }
+        });
         const content = (row.content as string) || '';
         const isHuman = row.message_type === 'incoming';
         const isIaReal = row.is_ia === true;
@@ -59,6 +78,7 @@ export async function processMessages(
                 aiMessages: [],
                 aiOnlyMessages: [],
                 content: '',
+                labels: []
             };
         }
         const c = clienteMap[clienteKey];
@@ -69,6 +89,13 @@ export async function processMessages(
         c.aiMessages.push(...session.aiMessages);
         c.aiOnlyMessages.push(...session.aiOnlyMessages);
         c.content += ' ' + session.content;
+        if (session.labels) {
+            session.labels.forEach((l: string) => {
+                if (!c.labels.includes(l)) {
+                    c.labels.push(l);
+                }
+            });
+        }
     });
 
     const clientes = Object.values(clienteMap);
@@ -102,7 +129,7 @@ export async function processMessages(
     let sessoesLongas = 0;
     let abandonoInteresseComCopart = 0;
     let abandonoInteresseComInternacao = 0;
-    let origemTrafego = { instagram: 0, facebook: 0, organico: 0 };
+    let origemTrafego = { campanha: 0, organico: 0 };
 
     let minDate: Date | null = null;
     let maxDate: Date | null = null;
@@ -184,13 +211,10 @@ export async function processMessages(
         if (!funnelByDay[dayKey]) funnelByDay[dayKey] = { cotacao: 0, interesse: 0, fechamento: 0 };
         if (!planosByDay[dayKey]) planosByDay[dayKey] = { empresarial: 0, familiar: 0 };
 
-        // ORIGEM DE TRAFEGO: detectada pela primeira mensagem humana da sessao
-        // Leads de anuncio chegam com link do Instagram ou Facebook no texto inicial
-        const primeiraMsgHumana = (session.humanMessages[0] ?? '').toLowerCase();
-        if (primeiraMsgHumana.includes('instagram.com/')) {
-            origemTrafego.instagram++;
-        } else if (primeiraMsgHumana.includes('fb.me/') || primeiraMsgHumana.includes('facebook.com/')) {
-            origemTrafego.facebook++;
+        // ORIGEM DE TRAFEGO: detectada pela etiqueta "lead_anuncio" nas conversas
+        const temEtiquetaAnuncio = session.labels && session.labels.includes('lead_anuncio');
+        if (temEtiquetaAnuncio) {
+            origemTrafego.campanha++;
         } else {
             origemTrafego.organico++;
         }
@@ -687,10 +711,11 @@ export async function processMessages(
         },
         resumosIA: {},
         origemTrafego: {
-            instagram: origemTrafego.instagram,
-            facebook: origemTrafego.facebook,
+            campanha: origemTrafego.campanha,
             organico: origemTrafego.organico,
-            total: origemTrafego.instagram + origemTrafego.facebook + origemTrafego.organico
+            instagram: 0, // mantido para retrocompatibilidade
+            facebook: 0,  // mantido para retrocompatibilidade
+            total: origemTrafego.campanha + origemTrafego.organico
         }
     };
 

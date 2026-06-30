@@ -133,10 +133,11 @@ export interface ResumosIA {
 }
 
 export interface OrigemTrafego {
-    instagram: number;
-    facebook: number;
+    campanha: number;
     organico: number;
     total: number;
+    instagram?: number;
+    facebook?: number;
 }
 
 export interface PeriodoAnalise {

@@ -381,29 +381,16 @@ export function InsightsTab() {
 
             {/* Cards de Origem de Trafego — so no marketing */}
             {subAba === 'marketing' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 flex-shrink-0 rounded-full bg-pink-500" />
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instagram Ads</span>
-                        </div>
-                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.instagram}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            {origemTrafego.total > 0
-                                ? `${Math.round((origemTrafego.instagram / origemTrafego.total) * 100)}% dos leads`
-                                : 'Sem dados'
-                            }
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-2 h-2 flex-shrink-0 rounded-full bg-blue-600" />
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Facebook Ads</span>
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Campanha</span>
                         </div>
-                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.facebook}</div>
+                        <div className="text-2xl font-bold text-gray-900">{origemTrafego.campanha}</div>
                         <div className="text-xs text-gray-500 mt-1">
                             {origemTrafego.total > 0
-                                ? `${Math.round((origemTrafego.facebook / origemTrafego.total) * 100)}% dos leads`
+                                ? `${Math.round((origemTrafego.campanha / origemTrafego.total) * 100)}% dos leads`
                                 : 'Sem dados'
                             }
                         </div>
