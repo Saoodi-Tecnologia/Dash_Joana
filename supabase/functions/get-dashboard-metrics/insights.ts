@@ -250,9 +250,11 @@ export async function generateWeeklyInsights(
             }
         }
 
-        // O early return que impedia a geração automática foi removido para garantir 
-        // que a semana mais recente seja gerada se estiver faltando.
-        
+        // Se nao e forcado e nao ha targetStartDate, retorna historico completo sem gerar
+        if (!forceRefetch && !targetStartDate && history.length > 0) {
+            return history;
+        }
+
         // Determina o periodo a gerar
         let startDate: Date;
         let endDate: Date;
@@ -273,7 +275,7 @@ export async function generateWeeklyInsights(
         }
 
         const weekMessages = await getRawMessages(supabase, startDate, endDate);
-        if (weekMessages.length === 0) return [];
+        if (weekMessages.length === 0) return history;
 
         const weekMetrics = await processMessages(weekMessages, startDate, endDate, true);
 
