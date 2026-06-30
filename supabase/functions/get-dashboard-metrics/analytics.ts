@@ -93,7 +93,7 @@ export class AnalyticsEngine {
             return ts >= prevPeriodStart && ts <= prevPeriodEnd;
         });
 
-        const currentMetrics = await processMessages(currentMessages, hasPeriodFilter ? periodStart : undefined, hasPeriodFilter ? periodEnd : undefined);
+        const currentMetrics = await processMessages(currentMessages, hasPeriodFilter ? periodStart : undefined, hasPeriodFilter ? periodEnd : undefined, true);
         const prevMetrics = await processMessages(prevMessages, prevPeriodStart, prevPeriodEnd, true);
 
         const hasPrev = prevMessages.length > 0;
