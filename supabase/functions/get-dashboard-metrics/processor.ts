@@ -235,24 +235,26 @@ export async function processMessages(
             stage = 'Interesse';
         }
 
-        // Fechamento: detectado por sinais da Joana, nao por palavras do cliente
-
-        // Sinal 1: Joana SOLICITA o CPF ativamente (diferente de informar que CPF e necessario)
-        // Padroes: "pode me passar seu CPF", "preciso do seu CPF", "me informa seu CPF", "me passa seu CPF"
-        const joanaFechouPedindoCpf =
-            /pode\s+me\s+(?:passar|informar|enviar|mandar)[^.!?\n]{0,30}cpf/i.test(aiText) ||
-            /(?:me\s+(?:passa|informa|envia|manda|informe)|preciso\s+do\s+(?:seu\s+)?|s[oó]\s+falta\s+(?:voc[eê]\s+me\s+)?(?:informar\s+)?(?:o\s+)?(?:seu\s+)?)\s*cpf/i.test(aiText) ||
-            /(?:agora\s+)?preciso\s+do\s+(?:seu\s+)?cpf\s+(?:pra|para)/i.test(aiText) ||
-            /cpf\s+(?:ou\s+cnpj\s+)?do\s+(?:respons[aá]vel|titular)\s+(?:pela|para)\s+(?:a\s+)?contrata/i.test(aiText);
-
-        // Sinal 2: Joana gerou resumo =Cliente com dados coletados (CPF, email, plano escolhido)
-        // REGRAS: Deve conter explicitamente '=cliente' e uma das palavras de coleta de dados.
-        // Isso evita que conversas onde a Joana apenas informa as opcoes de pagamento marquem fechamento erroneamente.
+        // Sinal 1: Joana gerou o resumo oficial =Cliente com dados de contratação coletados.
+        // Esta e a fonte primária de verdade: o bot só gera o resumo quando tem os dados completos.
         const resumoOficialIA = aiText.includes('=cliente');
         const dadosColetados = /(?:cpf|email|boleto|debito|débito|cartao|cartão|escolheu|optou)/i.test(aiText);
         const joanaGeroupResumoCliente = resumoOficialIA && dadosColetados;
 
-        if (joanaFechouPedindoCpf || joanaGeroupResumoCliente) stage = 'Fechamento';
+        // Sinal 2: Joana pediu CPF E o cliente efetivamente respondeu com um numero de CPF valido.
+        // Ambas as condicoes sao obrigatorias (AND) para evitar falso positivo de abandono pos-pedido.
+        const joanaFechouPedindoCpf = (
+            (
+                /pode\s+me\s+(?:passar|informar|enviar|mandar)[^.!?\n]{0,30}cpf/i.test(aiText) ||
+                /(?:me\s+(?:passa|informa|envia|manda|informe)|preciso\s+do\s+(?:seu\s+)?|s[oó]\s+falta\s+(?:voc[eê]\s+me\s+)?(?:informar\s+)?(?:o\s+)?(?:seu\s+)?)cpf/i.test(aiText) ||
+                /(?:agora\s+)?preciso\s+do\s+(?:seu\s+)?cpf\s+(?:pra|para)/i.test(aiText) ||
+                /cpf\s+(?:ou\s+cnpj\s+)?do\s+(?:respons[aá]vel|titular)\s+(?:pela|para)\s+(?:a\s+)?contrata/i.test(aiText)
+            ) &&
+            // Cliente enviou um numero de CPF valido (11 digitos, podendo ter pontuacao)
+            /\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\.\s]?\d{2}\b/.test(humanText)
+        );
+
+        if (joanaGeroupResumoCliente || joanaFechouPedindoCpf) stage = 'Fechamento';
 
 
         if (stage === 'Cotação') counts.cotacao++;
