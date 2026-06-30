@@ -277,22 +277,25 @@ function InsightAccordionItem({ insight, subAba }: { insight: WeeklyInsight; sub
 // Agrupa um array de WeeklyInsight por mes/ano da data do timestamp
 function groupByMonth(insights: WeeklyInsight[]): { mesLabel: string; items: WeeklyInsight[] }[] {
     const map: Record<string, WeeklyInsight[]> = {};
-    const order: string[] = [];
 
     insights.forEach(insight => {
-        const d = new Date(insight.timestamp);
+        // Usa periodoInicio para agrupar pelo mês de início da semana analisada,
+        // em vez da data de quando o relatório foi gerado (timestamp).
+        const d = new Date(insight.periodoInicio ?? insight.timestamp);
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         if (!map[key]) {
             map[key] = [];
-            order.push(key);
         }
         map[key].push(insight);
         // Garante que a label fica associada
         (map[key] as any)._label = label;
     });
 
-    return order.map(key => ({
+    // Ordena as chaves para garantir ordem decrescente (meses mais recentes primeiro)
+    const sortedKeys = Object.keys(map).sort((a, b) => b.localeCompare(a));
+
+    return sortedKeys.map(key => ({
         mesLabel: ((map[key] as any)._label as string),
         items: map[key]
     }));
