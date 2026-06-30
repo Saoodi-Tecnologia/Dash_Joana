@@ -1,48 +1,58 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
 /**
- * Service to interact with the Gemini AI model.
+ * Service to interact with the Anthropic Claude model.
  */
 export class GeminiService {
-    private genAI: GoogleGenerativeAI;
+    private client: Anthropic;
     private modelName: string;
 
     constructor() {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        // As per user rules, using gemini-2.5-flash-lite.
-        this.modelName = 'gemini-2.5-flash-lite';
+        const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || '';
+        this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+        this.modelName = 'claude-sonnet-4-5';
     }
 
     async generateSummary(prompt: string): Promise<string> {
         try {
-            const model = this.genAI.getGenerativeModel({ model: this.modelName });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
+            const message = await this.client.messages.create({
+                model: this.modelName,
+                max_tokens: 4096,
+                messages: [{ role: 'user', content: prompt }],
+            });
+            const block = message.content[0];
+            return block.type === 'text' ? block.text : '';
         } catch (error: any) {
-            console.error('Error generating summary with Gemini:', error);
-            throw new Error(`Gemini API Error: ${error.message || error}`);
+            console.error('Error generating summary with Anthropic:', error);
+            throw new Error(`Anthropic API Error: ${error.message || error}`);
         }
     }
 
     async chat(history: { role: string; parts: { text: string }[] }[], message: string): Promise<string> {
         try {
-            const model = this.genAI.getGenerativeModel({ model: this.modelName });
-            const chat = model.startChat({ history });
-            const result = await chat.sendMessage(message);
-            const response = await result.response;
-            return response.text();
-        } catch (error: any) {
-            console.error('Error in Gemini chat:', error);
-            const errMsg = error.message || '';
-            if (errMsg.includes('429') && errMsg.includes('Quota exceeded')) {
-                // Tenta extrair o tempo do erro (retry in X.Xs)
-                const timeMatch = errMsg.match(/retry in ([\d\.]+)s/);
-                const seconds = timeMatch ? Math.ceil(parseFloat(timeMatch[1])) : 30;
-                return `Atingimos nosso limite diário gratuito da inteligência artificial por conta de muitos testes recentes.||Por favor, guarde alguns segundinhos e aguarde ${seconds}s antes de fazer uma nova pergunta.`;
-            }
+            // Converte formato Gemini (parts) para formato Anthropic (content string)
+            const anthropicMessages: { role: 'user' | 'assistant'; content: string }[] = history.map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.parts.map(p => p.text).join('\n'),
+            }));
 
+            // Adiciona a mensagem atual do usuario
+            anthropicMessages.push({ role: 'user', content: message });
+
+            const response = await this.client.messages.create({
+                model: this.modelName,
+                max_tokens: 4096,
+                messages: anthropicMessages,
+            });
+
+            const block = response.content[0];
+            return block.type === 'text' ? block.text : '';
+        } catch (error: any) {
+            console.error('Error in Anthropic chat:', error);
+            const errMsg = error.message || '';
+            if (errMsg.includes('rate_limit') || errMsg.includes('429')) {
+                return `Atingimos o limite de requisicoes por minuto da IA.||Por favor, aguarde alguns segundos antes de fazer uma nova pergunta.`;
+            }
             return `Desculpe, erro ao consultar: ${errMsg}`;
         }
     }

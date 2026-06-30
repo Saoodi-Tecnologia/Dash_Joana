@@ -228,9 +228,9 @@ export async function generateWeeklyInsights(
     targetStartDate?: Date,
     targetEndDate?: Date
 ): Promise<any[]> {
+    let history: any[] = [];
     try {
         // Carrega historico atual
-        let history: any[] = [];
         const { data: cacheData } = await supabase
             .schema('dashboard')
             .from('dash_metrics_cache')
@@ -288,10 +288,10 @@ export async function generateWeeklyInsights(
         const promptNegocio = buildPromptNegocio(dossie);
         const promptMarketing = buildPromptMarketing(dossie);
 
-        const [textoNegocio, textoMarketing] = await Promise.all([
-            geminiService.generateSummary(promptNegocio),
-            geminiService.generateSummary(promptMarketing)
-        ]);
+        // Chama sequencialmente para nao sobrecarregar o timeout da Edge Function
+        const textoNegocio = await geminiService.generateSummary(promptNegocio);
+        const textoMarketing = await geminiService.generateSummary(promptMarketing);
+
 
         const parseJSON = (raw: string): Record<string, string> | null => {
             try {
@@ -340,6 +340,7 @@ export async function generateWeeklyInsights(
         return history;
     } catch (e) {
         console.error('Insights semanais: erro na geracao:', e);
-        return [];
+        // Retorna o historico carregado do DB (nunca perde o que ja existia)
+        return history;
     }
 }
