@@ -197,7 +197,7 @@ export function GeralTab() {
                                         <div className="flex-shrink-0 w-2.5 h-2.5 rounded-full mt-1" style={{ backgroundColor: "#155DFC" }}></div>
                                         <div>
                                             <p className="text-xs font-semibold text-gray-800">Fechamento</p>
-                                            <p className="text-xs text-gray-500">Joana faz a solicitação ativa do CPF para contratação OU gera o resumo formal de venda (=Cliente) com dados de pagamento coletados</p>
+                                            <p className="text-xs text-gray-500">Joana faz a solicitação ativa do CPF para contratação E gera o resumo formal de venda (=Cliente) com dados de pagamento coletados</p>
                                         </div>
                                     </div>
                                 </div>
