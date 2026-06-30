@@ -24,12 +24,17 @@ function getPreviousCalendarWeek(): { startDate: Date; endDate: Date } {
     return { startDate: prevMonday, endDate: prevSunday };
 }
 
-// Verifica se ja existe um insight para a semana dada (tolerancia de 1 dia)
-function weekAlreadyExists(history: any[], startDate: Date): boolean {
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+// Verifica se ja existe um insight para a semana dada (tolerancia de 1 dia ou pelo periodoStr)
+function weekAlreadyExists(history: any[], startDate: Date, endDate: Date): boolean {
+    const fmtDate = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const targetPeriodoStr = `${fmtDate(startDate)} a ${fmtDate(endDate)}`;
+
     return history.some((h: any) => {
+        if (h.periodoStr === targetPeriodoStr) return true;
+        
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
         const hStart = h.periodoInicio ?? 0;
-        return Math.abs(hStart - startDate.getTime()) < ONE_DAY_MS;
+        return hStart > 0 && Math.abs(hStart - startDate.getTime()) < ONE_DAY_MS;
     });
 }
 
@@ -269,8 +274,21 @@ export async function generateWeeklyInsights(
             endDate = range.endDate;
         }
 
-        // Nao regera se ja existe insight para essa semana (a menos que forceRefetch)
-        if (!forceRefetch && weekAlreadyExists(history, startDate)) {
+        // Se for forçado (forceRefetch), remove o registro antigo do histórico para evitar duplicidade
+        if (forceRefetch) {
+            const fmtDate = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const targetPeriodoStr = `${fmtDate(startDate)} a ${fmtDate(endDate)}`;
+
+            history = history.filter(h => {
+                if (h.periodoStr === targetPeriodoStr) return false;
+                if (!h.periodoInicio) return true;
+                const hStart = new Date(h.periodoInicio);
+                return !(hStart.getUTCFullYear() === startDate.getUTCFullYear() &&
+                         hStart.getUTCMonth() === startDate.getUTCMonth() &&
+                         hStart.getUTCDate() === startDate.getUTCDate());
+            });
+        } else if (weekAlreadyExists(history, startDate, endDate)) {
+            // Nao regera se ja existe insight para essa semana
             return history;
         }
 
