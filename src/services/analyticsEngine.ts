@@ -14,8 +14,8 @@ export class AnalyticsEngine {
         try {
             const payload: any = { generateInsights: true, forceRefetch };
             if (startDate && endDate) {
-                payload.startDate = startDate.toISOString();
-                payload.endDate = endDate.toISOString();
+                payload.targetStartDate = startDate.toISOString();
+                payload.targetEndDate = endDate.toISOString();
             }
 
             const { data, error } = await supabase.functions.invoke('get-dashboard-metrics', {

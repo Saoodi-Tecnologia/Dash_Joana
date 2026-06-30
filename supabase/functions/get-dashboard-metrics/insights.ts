@@ -250,11 +250,9 @@ export async function generateWeeklyInsights(
             }
         }
 
-        // Se nao e forcado e nao ha targetStartDate, retorna historico completo sem gerar
-        if (!forceRefetch && !targetStartDate && history.length > 0) {
-            return history;
-        }
-
+        // O early return que impedia a geração automática foi removido para garantir 
+        // que a semana mais recente seja gerada se estiver faltando.
+        
         // Determina o periodo a gerar
         let startDate: Date;
         let endDate: Date;
