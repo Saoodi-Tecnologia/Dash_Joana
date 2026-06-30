@@ -241,7 +241,7 @@ function InsightAccordionItem({ insight, subAba }: { insight: WeeklyInsight; sub
     return (
         <AccordionItem 
             value={itemId} 
-            className="bg-white border text-left border-gray-200 rounded-lg shadow-sm overflow-hidden mb-3 data-[state=open]:border-slate-400 [&[data-state=open]>div>button]:bg-slate-50"
+            className="bg-white border text-left border-gray-200 rounded-lg shadow-sm overflow-hidden data-[state=open]:border-slate-400 [&[data-state=open]>div>button]:bg-slate-50"
         >
             <AccordionTrigger className="px-5 py-3 hover:no-underline hover:bg-slate-50/50 transition-colors">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full pr-4 gap-1">
@@ -322,7 +322,7 @@ function MonthGroupedFeed({ insights, subAba }: { insights: WeeklyInsight[]; sub
                             <span className="text-xs text-gray-400">{group.items.length} {group.items.length === 1 ? 'relatório' : 'relatórios'}</span>
                         </div>
                     )}
-                    <div className="space-y-0">
+                    <div className="flex flex-col gap-3">
                         {group.items.map((insight, idx) => (
                             <InsightAccordionItem key={insight.timestamp ?? idx} insight={insight} subAba={subAba} />
                         ))}
